@@ -435,12 +435,30 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
         <span className="text-xs font-semibold text-slate-400">Nghe Thử Ca Sĩ Hát Thật:</span>
         <button
           onClick={() => {
+            soundEngine.playLotoCall(2);
+          }}
+          className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-pink-600 via-rose-500 to-amber-400 hover:brightness-110 text-[11px] text-white font-bold border border-pink-300 shadow flex items-center gap-1 active:scale-95 transition-all"
+        >
+          <span>🌸</span>
+          <span>Nữ Ca Sĩ Số 2 (Hằng Ny Ngọt Ngào)</span>
+        </button>
+        <button
+          onClick={() => {
+            soundEngine.playLotoCall(3);
+          }}
+          className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-fuchsia-600 via-pink-500 to-rose-400 hover:brightness-110 text-[11px] text-white font-bold border border-pink-200 shadow flex items-center gap-1 active:scale-95 transition-all"
+        >
+          <span>🌸</span>
+          <span>Nữ Ca Sĩ Số 3 (Dạ Thảo Tân Thời)</span>
+        </button>
+        <button
+          onClick={() => {
             soundEngine.playLotoCall(12);
           }}
           className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-red-600 via-rose-500 to-amber-500 hover:brightness-110 text-[11px] text-white font-bold border border-yellow-300 shadow flex items-center gap-1 active:scale-95 transition-all"
         >
           <span>🎵</span>
-          <span>Ca Sĩ Hát Thật Số 12 (Gánh Hương Nam)</span>
+          <span>Hát Thật Số 12 (Gánh Hương Nam)</span>
         </button>
         <button
           onClick={() => {
@@ -449,7 +467,7 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
           className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-500 hover:brightness-110 text-[11px] text-white font-bold border border-purple-300 shadow flex items-center gap-1 active:scale-95 transition-all"
         >
           <span>🎵</span>
-          <span>Ca Sĩ Hát Thật Số 1</span>
+          <span>Mở Màn Số 1</span>
         </button>
         <button
           onClick={() => soundEngine.stopLotoCall()}
