@@ -22,6 +22,39 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
   const [uploadMsg, setUploadMsg] = useState<string>('');
   const [isUploading, setIsUploading] = useState<boolean>(false);
 
+  // AI Voice Cloning State
+  const [showCloneStudio, setShowCloneStudio] = useState(false);
+  const [cloneStatus, setCloneStatus] = useState<{
+    hasApiKey: boolean;
+    apiKeyMasked: string;
+    voiceId: string;
+    voiceName: string;
+    clonedCount: number;
+    clonedNumbers: number[];
+  }>({
+    hasApiKey: false,
+    apiKeyMasked: '',
+    voiceId: '',
+    voiceName: 'Ngọc Nữ Hằng Ny (Cloned)',
+    clonedCount: 0,
+    clonedNumbers: [],
+  });
+  const [cloneApiKeyInput, setCloneApiKeyInput] = useState('');
+  const [cloneVoiceIdInput, setCloneVoiceIdInput] = useState('');
+  const [cloneNumInput, setCloneNumInput] = useState<number>(1);
+  const [cloneLoading, setCloneLoading] = useState(false);
+  const [cloneMsg, setCloneMsg] = useState('');
+
+  const refreshCloneStatus = () => {
+    fetch('/api/loto/clone/status')
+      .then((r) => r.json())
+      .then((d) => {
+        setCloneStatus(d);
+        if (d.voiceId) setCloneVoiceIdInput(d.voiceId);
+      })
+      .catch(() => {});
+  };
+
   const handleUploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -67,7 +100,89 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
         if (data.songs) setAvailableSongs(data.songs);
       })
       .catch(() => {});
+
+    refreshCloneStatus();
   }, []);
+
+  const handleSaveCloneConfig = async () => {
+    setCloneLoading(true);
+    setCloneMsg('Đang lưu cấu hình...');
+    try {
+      const res = await fetch('/api/loto/clone/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey: cloneApiKeyInput || undefined,
+          voiceId: cloneVoiceIdInput || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCloneMsg('Đã lưu cấu hình Voice Clone thành công!');
+        refreshCloneStatus();
+      } else {
+        setCloneMsg(`Lỗi: ${data.error}`);
+      }
+    } catch (err) {
+      setCloneMsg(`Lỗi kết nối: ${String(err)}`);
+    } finally {
+      setCloneLoading(false);
+      setTimeout(() => setCloneMsg(''), 4000);
+    }
+  };
+
+  const handleGenerateCloneNumber = async () => {
+    setCloneLoading(true);
+    setCloneMsg(`Đang gọi AI ElevenLabs clone giọng cho số ${cloneNumInput}...`);
+    try {
+      const res = await fetch('/api/loto/clone/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ num: cloneNumInput }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCloneMsg(`Tạo thành công giọng Hằng Ny cho số ${cloneNumInput}!`);
+        refreshCloneStatus();
+        soundEngine.playLotoCall(cloneNumInput);
+      } else {
+        setCloneMsg(`Lỗi: ${data.error}`);
+      }
+    } catch (err) {
+      setCloneMsg(`Lỗi: ${String(err)}`);
+    } finally {
+      setCloneLoading(false);
+      setTimeout(() => setCloneMsg(''), 4000);
+    }
+  };
+
+  const handleUploadClonedFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCloneLoading(true);
+    setCloneMsg(`Đang nạp file giọng clone cho số ${cloneNumInput}...`);
+    try {
+      const buffer = await file.arrayBuffer();
+      const res = await fetch(`/api/loto/clone/upload-number?num=${cloneNumInput}`, {
+        method: 'POST',
+        headers: { 'Content-Type': file.type || 'audio/mpeg' },
+        body: buffer,
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCloneMsg(`Đã nạp file giọng Hằng Ny cho số ${cloneNumInput}!`);
+        refreshCloneStatus();
+      } else {
+        setCloneMsg(`Lỗi: ${data.error}`);
+      }
+    } catch (err) {
+      setCloneMsg(`Lỗi nạp file: ${String(err)}`);
+    } finally {
+      setCloneLoading(false);
+      setTimeout(() => setCloneMsg(''), 4000);
+      e.target.value = '';
+    }
+  };
 
   useEffect(() => {
     const unsub = lotoEngine.subscribe((st) => {
@@ -281,14 +396,166 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
               Âm Thanh & Giọng Hát Lô Tô Hội Chợ
             </span>
           </div>
-          <button
-            onClick={() => setShowSunoGuide(!showSunoGuide)}
-            className="text-[11px] text-amber-400 hover:text-amber-300 underline flex items-center gap-1 cursor-pointer"
-          >
-            <span>💡</span>
-            <span>{showSunoGuide ? 'Đóng hướng dẫn Suno AI' : 'Cách tạo bài hát bằng Suno AI'}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCloneStudio(!showCloneStudio)}
+              className="text-[11px] text-pink-400 hover:text-pink-300 font-bold underline flex items-center gap-1 cursor-pointer transition-all"
+            >
+              <span>🎙️</span>
+              <span>{showCloneStudio ? 'Đóng AI Voice Clone Studio' : 'AI Voice Clone: Nhân Bản Giọng Hằng Ny 100%'}</span>
+            </button>
+            <span className="text-slate-600">|</span>
+            <button
+              onClick={() => setShowSunoGuide(!showSunoGuide)}
+              className="text-[11px] text-amber-400 hover:text-amber-300 underline flex items-center gap-1 cursor-pointer"
+            >
+              <span>💡</span>
+              <span>{showSunoGuide ? 'Đóng hướng dẫn Suno AI' : 'Tạo bằng Suno AI'}</span>
+            </button>
+          </div>
         </div>
+
+        {/* AI Voice Cloning Studio (Clone giọng ca sĩ Hằng Ny 100% không ghép nối) */}
+        {showCloneStudio && (
+          <div className="p-3.5 rounded-xl bg-gradient-to-br from-pink-950/40 via-purple-950/30 to-slate-950 border border-pink-500/40 text-xs flex flex-col gap-3 shadow-lg">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-pink-500/20 pb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🎙️</span>
+                <div>
+                  <h4 className="font-bold text-pink-300 text-xs">AI Voice Cloning Studio: Ngọc Nữ Hằng Ny</h4>
+                  <p className="text-[10px] text-slate-400">
+                    Sử dụng công nghệ AI Voice Cloning để cô ấy tự đọc và gọi mọi số từ 1 đến 90 (100% cùng 1 giọng, không ghép nối)
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-pink-950 border border-pink-500/50 text-[10px] text-pink-200 font-mono font-bold">
+                <span>Đã có giọng clone:</span>
+                <span className="text-amber-300">{cloneStatus.clonedCount}/90 số</span>
+              </div>
+            </div>
+
+            {/* Hướng dẫn 2 cách */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+              {/* Cột trái: Tải mẫu giọng & Dùng Free trên Web */}
+              <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 flex flex-col gap-2">
+                <span className="font-bold text-amber-300 flex items-center gap-1">
+                  <span>📥</span>
+                  <span>Cách 1: Miễn phí qua Web ElevenLabs / Fish Audio</span>
+                </span>
+                <p className="text-[10px] text-slate-300 leading-relaxed">
+                  1. Tải <b>file mẫu âm thanh giọng chuẩn 1 phút của ca sĩ Hằng Ny</b> về máy:
+                </p>
+                <a
+                  href="/api/loto/clone/sample"
+                  download="hang_ny_loto_sample.mp3"
+                  className="px-3 py-1.5 rounded bg-pink-600 hover:bg-pink-500 text-white font-bold text-center text-[10px] flex items-center justify-center gap-1.5 shadow active:scale-95 transition-all"
+                >
+                  <span>⬇️</span>
+                  <span>Tải Mẫu Giọng Hằng Ny (.mp3 1 phút)</span>
+                </a>
+                <p className="text-[10px] text-slate-300 leading-relaxed">
+                  2. Mở <a href="https://elevenlabs.io" target="_blank" rel="noreferrer" className="text-pink-400 underline font-bold">ElevenLabs.io</a> (free 10,000 ký tự) hoặc <a href="https://fish.audio" target="_blank" rel="noreferrer" className="text-pink-400 underline font-bold">Fish.audio</a>.
+                  <br />
+                  3. Chọn <b>Instant Voice Cloning</b> &rarr; Tải file vừa tải lên &rarr; Nhập câu gọi số và tải file MP3 về nạp vào app bên dưới.
+                </p>
+              </div>
+
+              {/* Cột phải: Kết nối API tự động */}
+              <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 flex flex-col gap-2">
+                <span className="font-bold text-pink-300 flex items-center gap-1">
+                  <span>⚡</span>
+                  <span>Cách 2: Kết nối API ElevenLabs (Tự động 100%)</span>
+                </span>
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-400 w-20 shrink-0">API Key:</span>
+                    <input
+                      type="password"
+                      placeholder={cloneStatus.hasApiKey ? 'Đã lưu: ' + cloneStatus.apiKeyMasked : 'Dán xi-api-key...'}
+                      value={cloneApiKeyInput}
+                      onChange={(e) => setCloneApiKeyInput(e.target.value)}
+                      className="flex-1 px-2 py-1 bg-slate-950 border border-slate-700 rounded text-amber-300 text-[10px] focus:outline-none"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-400 w-20 shrink-0">Voice ID:</span>
+                    <input
+                      type="text"
+                      placeholder="Nhập Voice ID trên ElevenLabs..."
+                      value={cloneVoiceIdInput}
+                      onChange={(e) => setCloneVoiceIdInput(e.target.value)}
+                      className="flex-1 px-2 py-1 bg-slate-950 border border-slate-700 rounded text-pink-300 font-mono text-[10px] focus:outline-none"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSaveCloneConfig}
+                    disabled={cloneLoading}
+                    className="mt-1 px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-bold text-[10px] flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <span>💾</span>
+                    <span>Lưu Cấu Hình API</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Quản lý từng số cụ thể */}
+            <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-300 text-[11px] font-semibold">Tạo / Nạp giọng cho số:</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="90"
+                  value={cloneNumInput}
+                  onChange={(e) => setCloneNumInput(Math.max(1, Math.min(90, Number(e.target.value))))}
+                  className="w-12 px-1.5 py-0.5 text-center font-mono font-bold bg-slate-950 border border-slate-700 rounded text-pink-300 text-xs focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                {cloneStatus.hasApiKey && cloneStatus.voiceId && (
+                  <button
+                    onClick={handleGenerateCloneNumber}
+                    disabled={cloneLoading}
+                    className="px-2.5 py-1 rounded bg-gradient-to-r from-pink-600 to-rose-600 hover:brightness-110 text-white font-bold text-[10px] flex items-center gap-1 shadow active:scale-95 transition-all cursor-pointer"
+                  >
+                    <span>⚡</span>
+                    <span>Gọi AI Tạo Số #{cloneNumInput}</span>
+                  </button>
+                )}
+
+                <label className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-bold text-[10px] cursor-pointer flex items-center gap-1 active:scale-95 transition-all">
+                  <span>📁</span>
+                  <span>Nạp file MP3 số #{cloneNumInput}</span>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={handleUploadClonedFile}
+                    disabled={cloneLoading}
+                    className="hidden"
+                  />
+                </label>
+
+                {cloneStatus.clonedNumbers.includes(cloneNumInput) && (
+                  <button
+                    onClick={() => soundEngine.playLotoCall(cloneNumInput)}
+                    className="px-2 py-1 rounded bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all"
+                  >
+                    <span>▶️</span>
+                    <span>Nghe Thử</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {cloneMsg && (
+              <div className={`text-[11px] font-semibold ${cloneMsg.includes('Lỗi') ? 'text-rose-400' : 'text-emerald-400'}`}>
+                {cloneMsg}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Modal / Hướng dẫn tạo bài hát Lô Tô có nhạc phổ */}
         {showSunoGuide && (

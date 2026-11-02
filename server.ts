@@ -495,9 +495,67 @@ app.get('/api/loto/songs', (_req, res) => {
   return res.json({ songs });
 });
 
+interface VoiceCloneConfig {
+  apiKey: string;
+  voiceId: string;
+  voiceName: string;
+}
+
+function getCloneConfig(): VoiceCloneConfig {
+  const cfgPath = path.join(__dirname, 'public', 'assets', 'loto', 'clone_config.json');
+  if (fs.existsSync(cfgPath)) {
+    try {
+      return JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+    } catch {}
+  }
+  return {
+    apiKey: process.env.ELEVENLABS_API_KEY || '',
+    voiceId: process.env.ELEVENLABS_VOICE_ID || '',
+    voiceName: 'Ngọc Nữ Hằng Ny (Cloned)',
+  };
+}
+
+function saveCloneConfig(cfg: Partial<VoiceCloneConfig>) {
+  const current = getCloneConfig();
+  const updated = { ...current, ...cfg };
+  const cfgPath = path.join(__dirname, 'public', 'assets', 'loto', 'clone_config.json');
+  fs.writeFileSync(cfgPath, JSON.stringify(updated, null, 2));
+  return updated;
+}
+
+async function callElevenLabsClone(text: string, voiceId: string, apiKey: string): Promise<Buffer> {
+  const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'xi-api-key': apiKey,
+      'Content-Type': 'application/json',
+      Accept: 'audio/mpeg',
+    },
+    body: JSON.stringify({
+      text,
+      model_id: 'eleven_multilingual_v2',
+      voice_settings: {
+        stability: 0.5,
+        similarity_boost: 0.85,
+        style: 0.35,
+        use_speaker_boost: true,
+      },
+    }),
+  });
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`ElevenLabs error ${response.status}: ${errText}`);
+  }
+  const arrayBuf = await response.arrayBuffer();
+  return Buffer.from(arrayBuf);
+}
+
 // Master Lô Tô Audio Call Route:
-// 1. If /assets/loto/songs/{num}.mp3 exists, stream the authentic singing MP3!
-// 2. Otherwise synthesize chant via Edge TTS + organ beat + stage echo!
+// 0. Check if AI Cloned Voice exists for this number (100% Hang Ny voice)
+// 1. If /assets/loto/songs/{num}.mp3 exists, stream authentic singing MP3!
+// 2. If ElevenLabs is configured, generate directly via cloned voice!
+// 3. Otherwise hybrid: Real Singer Intro + MC number callout
 app.get('/api/loto/call-audio', async (req, res) => {
   try {
     const num = parseInt(req.query.num as string, 10);
@@ -508,6 +566,16 @@ app.get('/api/loto/call-audio', async (req, res) => {
     const voice = (req.query.voice as string) || 'vi-VN-NamMinhNeural';
     const beat = req.query.beat !== '0';
 
+    // 0. Check if a dedicated AI CLONED VOICE file exists for this number in /assets/loto/cloned_voices/hangny/{num}.mp3!
+    const clonedDir = path.join(__dirname, 'public', 'assets', 'loto', 'cloned_voices', 'hangny');
+    const clonedFilePath = path.join(clonedDir, `${num}.mp3`);
+    if (fs.existsSync(clonedFilePath)) {
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.setHeader('X-Loto-Audio-Type', 'cloned-voice-hangny');
+      return res.sendFile(clonedFilePath);
+    }
+
     // 1. Check if a real recorded song exists for this number
     const customSongPath = path.join(__dirname, 'public', 'assets', 'loto', 'songs', `${num}.mp3`);
     if (fs.existsSync(customSongPath)) {
@@ -517,7 +585,26 @@ app.get('/api/loto/call-audio', async (req, res) => {
       return res.sendFile(customSongPath);
     }
 
-    // 2. Check in-memory synthesized cache
+    // 2. Check if ElevenLabs Clone API is configured for on-the-fly generation
+    const cloneCfg = getCloneConfig();
+    if (cloneCfg.apiKey && cloneCfg.voiceId) {
+      try {
+        const callText = `Cờ ra con mấy, con mấy gì đây! Cờ ra con số ${num}! Là con số ${num}!`;
+        const clonedBuf = await callElevenLabsClone(callText, cloneCfg.voiceId, cloneCfg.apiKey);
+        if (clonedBuf && clonedBuf.length > 500) {
+          if (!fs.existsSync(clonedDir)) fs.mkdirSync(clonedDir, { recursive: true });
+          fs.writeFileSync(clonedFilePath, clonedBuf);
+          res.setHeader('Content-Type', 'audio/mpeg');
+          res.setHeader('Cache-Control', 'public, max-age=86400');
+          res.setHeader('X-Loto-Audio-Type', 'cloned-voice-elevenlabs');
+          return res.send(clonedBuf);
+        }
+      } catch (err) {
+        console.warn('ElevenLabs clone error, falling back to hybrid:', err);
+      }
+    }
+
+    // 3. Check in-memory synthesized cache
     const cacheKey = `${num}|${voice}|hybrid`;
     const cached = lotoCallCache.get(cacheKey);
     if (cached) {
@@ -527,7 +614,7 @@ app.get('/api/loto/call-audio', async (req, res) => {
       return res.send(cached);
     }
 
-    // 3. Generate hybrid: Real Singer Intro (Hằng Ny / Dạ Thảo / Hương Nam) + Exact Number Callout!
+    // 4. Generate hybrid: Real Singer Intro (Hằng Ny / Dạ Thảo / Hương Nam) + Exact Number Callout!
     let finalAudio: Buffer;
     try {
       finalAudio = await generateHybridLotoCall(num, voice);
@@ -572,6 +659,103 @@ app.post('/api/loto/upload-song', express.raw({ type: '*/*', limit: '20mb' }), (
   } catch (err) {
     console.error('Upload song error:', err);
     return res.status(500).json({ success: false, error: 'Lỗi lưu bài hát' });
+  }
+});
+
+// AI Voice Cloning endpoints:
+// 1. Get current clone status & list of generated cloned numbers
+app.get('/api/loto/clone/status', (_req, res) => {
+  const cfg = getCloneConfig();
+  const clonedDir = path.join(__dirname, 'public', 'assets', 'loto', 'cloned_voices', 'hangny');
+  const clonedNumbers: number[] = [];
+  if (fs.existsSync(clonedDir)) {
+    const files = fs.readdirSync(clonedDir);
+    for (const f of files) {
+      const m = f.match(/^(\d+)\.mp3$/i);
+      if (m) clonedNumbers.push(parseInt(m[1], 10));
+    }
+  }
+  clonedNumbers.sort((a, b) => a - b);
+
+  const samplePath = path.join(__dirname, 'public', 'assets', 'loto', 'clone_samples', 'hang_ny_sample.mp3');
+  const sampleAvailable = fs.existsSync(samplePath);
+
+  return res.json({
+    hasApiKey: !!cfg.apiKey,
+    apiKeyMasked: cfg.apiKey ? `${cfg.apiKey.slice(0, 4)}...${cfg.apiKey.slice(-4)}` : '',
+    voiceId: cfg.voiceId || '',
+    voiceName: cfg.voiceName || 'Ngọc Nữ Hằng Ny (Cloned)',
+    clonedCount: clonedNumbers.length,
+    clonedNumbers,
+    sampleAvailable,
+  });
+});
+
+// 2. Save API key & Voice ID config
+app.post('/api/loto/clone/config', express.json(), (req, res) => {
+  const { apiKey, voiceId, voiceName } = req.body;
+  const updated = saveCloneConfig({
+    ...(apiKey !== undefined ? { apiKey } : {}),
+    ...(voiceId !== undefined ? { voiceId } : {}),
+    ...(voiceName !== undefined ? { voiceName } : {}),
+  });
+  return res.json({
+    success: true,
+    config: {
+      hasApiKey: !!updated.apiKey,
+      voiceId: updated.voiceId,
+      voiceName: updated.voiceName,
+    },
+  });
+});
+
+// 3. Download the pure 1-minute clean reference sample of Hang Ny for manual upload to ElevenLabs / Fish Audio
+app.get('/api/loto/clone/sample', (_req, res) => {
+  const samplePath = path.join(__dirname, 'public', 'assets', 'loto', 'clone_samples', 'hang_ny_sample.mp3');
+  if (!fs.existsSync(samplePath)) {
+    return res.status(404).send('Sample file not found');
+  }
+  res.setHeader('Content-Disposition', 'attachment; filename="hang_ny_loto_sample.mp3"');
+  res.setHeader('Content-Type', 'audio/mpeg');
+  return res.sendFile(samplePath);
+});
+
+// 4. Upload an MP3 file directly into cloned voice directory
+app.post('/api/loto/clone/upload-number', express.raw({ type: '*/*', limit: '20mb' }), (req, res) => {
+  try {
+    const num = parseInt(req.query.num as string, 10);
+    if (isNaN(num) || num < 1 || num > 90) {
+      return res.status(400).json({ success: false, error: 'Số không hợp lệ (1-90)' });
+    }
+    const clonedDir = path.join(__dirname, 'public', 'assets', 'loto', 'cloned_voices', 'hangny');
+    if (!fs.existsSync(clonedDir)) fs.mkdirSync(clonedDir, { recursive: true });
+    const targetPath = path.join(clonedDir, `${num}.mp3`);
+    fs.writeFileSync(targetPath, req.body as Buffer);
+    return res.json({ success: true, message: `Đã lưu file giọng clone cho số ${num}` });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: String(err) });
+  }
+});
+
+// 5. Generate a cloned call for a specific number using ElevenLabs
+app.post('/api/loto/clone/generate', express.json(), async (req, res) => {
+  try {
+    const num = parseInt(req.body.num, 10);
+    if (isNaN(num) || num < 1 || num > 90) {
+      return res.status(400).json({ success: false, error: 'Số không hợp lệ (1-90)' });
+    }
+    const cfg = getCloneConfig();
+    if (!cfg.apiKey || !cfg.voiceId) {
+      return res.status(400).json({ success: false, error: 'Chưa cấu hình API Key hoặc Voice ID' });
+    }
+    const text = `Cờ ra con mấy, con mấy gì đây! Cờ ra con số ${num}! Là con số ${num}!`;
+    const audioBuf = await callElevenLabsClone(text, cfg.voiceId, cfg.apiKey);
+    const clonedDir = path.join(__dirname, 'public', 'assets', 'loto', 'cloned_voices', 'hangny');
+    if (!fs.existsSync(clonedDir)) fs.mkdirSync(clonedDir, { recursive: true });
+    fs.writeFileSync(path.join(clonedDir, `${num}.mp3`), audioBuf);
+    return res.json({ success: true, message: `Đã tạo giọng clone thành công cho số ${num}` });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: String(err) });
   }
 });
 
