@@ -413,6 +413,70 @@ function mixWithLotoBeat(ttsBuffer: Buffer): Promise<Buffer> {
   });
 }
 
+function generateHybridLotoCall(num: number, voice: string): Promise<Buffer> {
+  return new Promise(async (resolve) => {
+    try {
+      const introsDir = path.join(__dirname, 'public', 'assets', 'loto', 'intros');
+      let introPath = path.join(__dirname, 'public', 'assets', 'audio', 'loto_beat.mp3');
+      if (fs.existsSync(introsDir)) {
+        const allFiles = fs.readdirSync(introsDir).filter((f) => f.endsWith('.mp3'));
+        let matchedFiles = allFiles;
+        if (voice.includes('HoaiMy')) {
+          matchedFiles = allFiles.filter((f) => f.startsWith('nu_'));
+        } else if (voice.includes('NamMinh')) {
+          matchedFiles = allFiles.filter((f) => !f.startsWith('nu_'));
+        }
+        if (matchedFiles.length === 0) matchedFiles = allFiles;
+        if (matchedFiles.length > 0) {
+          introPath = path.join(introsDir, matchedFiles[Math.floor(Math.random() * matchedFiles.length)]);
+        }
+      }
+
+      const beatPath = path.join(__dirname, 'public', 'assets', 'audio', 'loto_beat.mp3');
+      const callText = `Cờ ra con mấy, con mấy gì đây! Cờ ra con số ${num}! Là con số ${num}!`;
+
+      let ttsBuf: Buffer;
+      try {
+        ttsBuf = await edgeTts(callText, 1.08, voice);
+      } catch {
+        ttsBuf = await googleTts(callText);
+      }
+
+      const tmpCall = path.join(os.tmpdir(), `call_${num}_${Date.now()}.mp3`);
+      fs.writeFileSync(tmpCall, ttsBuf);
+
+      const ffmpeg = spawn(FFMPEG_BIN, [
+        '-y',
+        '-i', introPath,
+        '-i', tmpCall,
+        '-i', beatPath,
+        '-filter_complex', '[1:a]aecho=0.8:0.7:160:0.35,volume=1.4[call];[2:a]volume=0.38[beat];[call][beat]amix=inputs=2:duration=first[call_mix];[0:a][call_mix]concat=n=2:v=0:a=1[out]',
+        '-map', '[out]',
+        '-f', 'mp3',
+        '-b:a', '192k',
+        'pipe:1',
+      ]);
+
+      const chunks: Buffer[] = [];
+      ffmpeg.stdout.on('data', (c) => chunks.push(c));
+      ffmpeg.on('close', (code) => {
+        try { fs.unlinkSync(tmpCall); } catch {}
+        if (code === 0 && chunks.length > 0) {
+          resolve(Buffer.concat(chunks));
+        } else {
+          resolve(ttsBuf);
+        }
+      });
+      ffmpeg.on('error', () => {
+        try { fs.unlinkSync(tmpCall); } catch {}
+        resolve(ttsBuf);
+      });
+    } catch {
+      resolve(Buffer.alloc(0));
+    }
+  });
+}
+
 // List available pre-recorded real song MP3s in /assets/loto/songs/
 app.get('/api/loto/songs', (_req, res) => {
   const songsDir = path.join(__dirname, 'public', 'assets', 'loto', 'songs');
@@ -454,32 +518,22 @@ app.get('/api/loto/call-audio', async (req, res) => {
     }
 
     // 2. Check in-memory synthesized cache
-    const cacheKey = `${num}|${voice}|${beat ? '1' : '0'}`;
+    const cacheKey = `${num}|${voice}|hybrid`;
     const cached = lotoCallCache.get(cacheKey);
     if (cached) {
       res.setHeader('Content-Type', 'audio/mpeg');
       res.setHeader('Cache-Control', 'public, max-age=86400');
-      res.setHeader('X-Loto-Audio-Type', 'synthesized-beat');
+      res.setHeader('X-Loto-Audio-Type', 'hybrid-real-intro');
       return res.send(cached);
     }
 
-    // 3. Generate chant text & Edge TTS
-    const { spokenText } = getLotoChant(num);
-    let ttsBuffer: Buffer;
+    // 3. Generate hybrid: Real Singer Intro (Hằng Ny / Dạ Thảo / Hương Nam) + Exact Number Callout!
+    let finalAudio: Buffer;
     try {
-      ttsBuffer = await edgeTts(spokenText, 1.05, voice);
+      finalAudio = await generateHybridLotoCall(num, voice);
     } catch {
-      ttsBuffer = await googleTts(spokenText);
-    }
-
-    // 4. Mix with organ beat if enabled
-    let finalAudio = ttsBuffer;
-    if (beat) {
-      try {
-        finalAudio = await mixWithLotoBeat(ttsBuffer);
-      } catch (mixErr) {
-        console.warn('mixWithLotoBeat failed, fallback to raw tts:', mixErr);
-      }
+      const { spokenText } = getLotoChant(num);
+      finalAudio = await edgeTts(spokenText, 1.05, voice);
     }
 
     lotoCallCache.set(cacheKey, finalAudio);
@@ -489,7 +543,7 @@ app.get('/api/loto/call-audio', async (req, res) => {
 
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.setHeader('X-Loto-Audio-Type', 'synthesized-beat');
+    res.setHeader('X-Loto-Audio-Type', 'hybrid-real-intro');
     return res.send(finalAudio);
   } catch (err) {
     console.error('Call-audio error:', err);

@@ -375,23 +375,41 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
           </div>
         </div>
 
+        {/* Thông báo cơ chế gọi số thông minh */}
+        <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-start gap-2 text-[11px] text-amber-200">
+          <span className="text-base shrink-0">💡</span>
+          <div>
+            <strong className="text-amber-300">Cơ chế gọi số thông minh:</strong> Khi bấm <em>Quay số ngẫu nhiên (1-90)</em>, hệ thống tự động phát câu hò / dạo đầu bolero luyến láy 10-12s của ca sĩ thật để giữ không khí hồi hộp, rồi hô vang chính xác số vừa quay ra! Nếu quay trúng số có bài hát riêng (#1, #2, #3, #12), bài hát gốc của ca sĩ sẽ được phát trọn vẹn 100%.
+          </div>
+        </div>
+
         {/* Quản lý và nạp file MP3 ca sĩ hát thật */}
         <div className="flex flex-col gap-2 pt-2 border-t border-slate-900 text-[11px]">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="text-slate-400 font-semibold">Kho bài hát ca sĩ hát thật:</span>
               {availableSongs.length > 0 ? (
-                availableSongs.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => soundEngine.playLotoCall(s)}
-                    className="px-2 py-0.5 rounded-full bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/60 text-emerald-300 font-mono font-bold cursor-pointer transition-all flex items-center gap-1"
-                    title={`Bấm để nghe hát số ${s}`}
-                  >
-                    <span>▶️</span>
-                    <span>#{s}</span>
-                  </button>
-                ))
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {availableSongs.map((s) => (
+                    <div key={s} className="inline-flex items-center rounded-lg border border-emerald-500/50 bg-slate-900 overflow-hidden shadow-sm">
+                      <button
+                        onClick={() => soundEngine.playLotoCall(s)}
+                        className="px-2 py-1 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 font-mono font-bold cursor-pointer transition-all flex items-center gap-1"
+                        title={`Nghe thử bài hát số ${s}`}
+                      >
+                        <span>▶️</span>
+                        <span>#{s}</span>
+                      </button>
+                      <button
+                        onClick={() => lotoEngine.spinNext(s)}
+                        className="px-2 py-1 bg-amber-950/90 hover:bg-amber-900 border-l border-amber-600/50 text-amber-300 text-[10px] font-bold cursor-pointer transition-all flex items-center gap-0.5"
+                        title={`Quay lồng cầu và gọi trúng số ${s} trên sân khấu`}
+                      >
+                        <span>🎲 Quay #{s}</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <span className="text-slate-500 italic">Chưa có bài hát nào</span>
               )}

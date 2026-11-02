@@ -267,8 +267,8 @@ class LotoEngineService {
     ticket.winningRow = winningRow;
   }
 
-  // Spin the next ball
-  public spinNext(): number | null {
+  // Spin the next ball (optionally targeting a specific number with a song)
+  public spinNext(preferredNum?: number): number | null {
     if (this.calledNumbers.length >= 90 || this.isSpinning) {
       return null;
     }
@@ -288,7 +288,9 @@ class LotoEngineService {
       return null;
     }
 
-    const nextNum = available[Math.floor(Math.random() * available.length)];
+    const nextNum = preferredNum && available.includes(preferredNum)
+      ? preferredNum
+      : available[Math.floor(Math.random() * available.length)];
 
     // Simulate 2 seconds of cage spin animation before ball pops out
     setTimeout(() => {
