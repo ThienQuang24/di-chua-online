@@ -498,7 +498,7 @@ app.get('/api/loto/call-audio', async (req, res) => {
 });
 
 // Upload a real singing MP3 file for a number (from streamer panel)
-app.post('/api/loto/upload-song', express.raw({ type: 'audio/mpeg', limit: '15mb' }), (req, res) => {
+app.post('/api/loto/upload-song', express.raw({ type: '*/*', limit: '20mb' }), (req, res) => {
   try {
     const num = parseInt(req.query.num as string, 10);
     if (isNaN(num) || num < 1 || num > 90) {

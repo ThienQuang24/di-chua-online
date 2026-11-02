@@ -18,6 +18,42 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
   const [useBeat, setUseBeat] = useState<boolean>(soundEngine.getLotoUseBeat());
   const [availableSongs, setAvailableSongs] = useState<number[]>([]);
   const [showSunoGuide, setShowSunoGuide] = useState(false);
+  const [uploadNum, setUploadNum] = useState<number>(12);
+  const [uploadMsg, setUploadMsg] = useState<string>('');
+  const [isUploading, setIsUploading] = useState<boolean>(false);
+
+  const handleUploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    setUploadMsg('Đang nạp file bài hát...');
+    try {
+      const buffer = await file.arrayBuffer();
+      const res = await fetch(`/api/loto/upload-song?num=${uploadNum}`, {
+        method: 'POST',
+        headers: { 'Content-Type': file.type || 'audio/mpeg' },
+        body: buffer,
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUploadMsg(`Đã nạp thành công bài hát số ${uploadNum}!`);
+        fetch('/api/loto/songs')
+          .then((r) => r.json())
+          .then((d) => {
+            if (d.songs) setAvailableSongs(d.songs);
+          })
+          .catch(() => {});
+      } else {
+        setUploadMsg(`Lỗi: ${data.error}`);
+      }
+    } catch (err) {
+      setUploadMsg(`Lỗi tải lên: ${String(err)}`);
+    } finally {
+      setIsUploading(false);
+      setTimeout(() => setUploadMsg(''), 4000);
+      e.target.value = '';
+    }
+  };
 
   useEffect(() => {
     fetch('/api/network-info')
@@ -339,20 +375,57 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
           </div>
         </div>
 
-        {/* Trạng thái kho bài hát thực tế */}
-        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-900 text-[11px]">
-          <span className="text-slate-400">Kho bài hát thực tế:</span>
-          {availableSongs.length > 0 ? (
-            availableSongs.map((s) => (
-              <span
-                key={s}
-                className="px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-500/60 text-emerald-300 font-mono font-bold"
-              >
-                #{s} (MP3 có nhạc phổ)
-              </span>
-            ))
-          ) : (
-            <span className="text-slate-500 italic">Chưa có file bài hát nào trong /assets/loto/songs/</span>
+        {/* Quản lý và nạp file MP3 ca sĩ hát thật */}
+        <div className="flex flex-col gap-2 pt-2 border-t border-slate-900 text-[11px]">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400 font-semibold">Kho bài hát ca sĩ hát thật:</span>
+              {availableSongs.length > 0 ? (
+                availableSongs.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => soundEngine.playLotoCall(s)}
+                    className="px-2 py-0.5 rounded-full bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/60 text-emerald-300 font-mono font-bold cursor-pointer transition-all flex items-center gap-1"
+                    title={`Bấm để nghe hát số ${s}`}
+                  >
+                    <span>▶️</span>
+                    <span>#{s}</span>
+                  </button>
+                ))
+              ) : (
+                <span className="text-slate-500 italic">Chưa có bài hát nào</span>
+              )}
+            </div>
+
+            {/* Form nạp nhanh file MP3 ca sĩ hát luyến láy */}
+            <div className="flex items-center gap-1.5 bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
+              <span className="text-slate-400 text-[10px]">Nạp MP3 cho số:</span>
+              <input
+                type="number"
+                min="1"
+                max="90"
+                value={uploadNum}
+                onChange={(e) => setUploadNum(Math.max(1, Math.min(90, Number(e.target.value))))}
+                className="w-12 px-1.5 py-0.5 text-center font-mono font-bold bg-slate-950 border border-slate-700 rounded text-amber-400 text-xs focus:outline-none"
+              />
+              <label className="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white font-bold text-[10px] cursor-pointer flex items-center gap-1 active:scale-95 transition-all">
+                <span>{isUploading ? '⏳' : '📁'}</span>
+                <span>{isUploading ? 'Đang nạp...' : 'Chọn MP3'}</span>
+                <input
+                  type="file"
+                  accept="audio/*"
+                  onChange={handleUploadFile}
+                  disabled={isUploading}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          </div>
+
+          {uploadMsg && (
+            <div className={`text-[11px] font-semibold ${uploadMsg.includes('Lỗi') ? 'text-rose-400' : 'text-emerald-400'}`}>
+              {uploadMsg}
+            </div>
           )}
         </div>
       </div>
