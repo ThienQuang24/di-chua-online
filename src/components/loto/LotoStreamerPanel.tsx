@@ -1,0 +1,414 @@
+import React, { useState, useEffect } from 'react';
+import { lotoEngine, LotoState, LotoTicket } from '../../services/loto/lotoEngine';
+import { getLotoChant } from '../../services/loto/lotoVerses';
+import { soundEngine } from '../../services/soundEngine';
+
+interface LotoStreamerPanelProps {
+  onAddDevotee?: (name: string, avatarUrl: string) => void;
+}
+
+export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevotee }) => {
+  const [gameState, setGameState] = useState<LotoState>(lotoEngine.getState());
+  const [tickets, setTickets] = useState<LotoTicket[]>(lotoEngine.getTickets());
+  const [customSpeak, setCustomSpeak] = useState('');
+  const [networkInfo, setNetworkInfo] = useState<{ localIp: string; port: number; ticketUrl: string } | null>(null);
+  const [showQr, setShowQr] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [lotoVoice, setLotoVoice] = useState<string>(soundEngine.getLotoVoice());
+  const [useBeat, setUseBeat] = useState<boolean>(soundEngine.getLotoUseBeat());
+  const [availableSongs, setAvailableSongs] = useState<number[]>([]);
+  const [showSunoGuide, setShowSunoGuide] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/network-info')
+      .then((r) => r.json())
+      .then((data) => setNetworkInfo(data))
+      .catch(() => {});
+
+    fetch('/api/loto/songs')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.songs) setAvailableSongs(data.songs);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const unsub = lotoEngine.subscribe((st) => {
+      setGameState(st);
+      setTickets(lotoEngine.getTickets());
+    });
+    return () => {
+      unsub();
+    };
+  }, []);
+
+  const handleSpinNext = () => {
+    lotoEngine.spinNext();
+  };
+
+  const handleToggleAuto = () => {
+    lotoEngine.setAutoSpin(!gameState.isAutoSpin);
+  };
+
+  const handleResetRound = () => {
+    if (confirm('Bạn có chắc chắn muốn bắt đầu ván mới không? (Bảng số sẽ được xóa về 0)')) {
+      lotoEngine.resetRound();
+    }
+  };
+
+  const handleSimulatePlayer = () => {
+    const fakeNames = ['Hương Giang', 'Minh Tuấn', 'Thanh Hằng', 'Bảo Ngọc', 'Hoàng Nam', 'Khánh Linh', 'Tuấn Ken', 'Chị Lan', 'Anh Ba', 'Hà My', 'Quốc Bảo'];
+    const baseName = fakeNames[Math.floor(Math.random() * fakeNames.length)];
+    const username = `${baseName.toLowerCase().replace(/\s+/g, '_')}_${Math.floor(100 + Math.random() * 900)}`;
+    lotoEngine.issueTicket(username, baseName, '');
+    onAddDevotee?.(username, '');
+  };
+
+  const handleSimulateWin = () => {
+    const winner = lotoEngine.simulateWin();
+    onAddDevotee?.(winner.username, winner.avatarUrl);
+  };
+
+  const handleSpeak = () => {
+    if (customSpeak.trim()) {
+      soundEngine.speak(customSpeak.trim());
+      setCustomSpeak('');
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4 p-4 bg-slate-900 border border-slate-800 rounded-2xl text-slate-100">
+      {/* 1. THANH TRẠNG THÁI VÀ NÚT ĐIỀU KHIỂN CHÍNH */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
+        <div>
+          <h2 className="text-base font-bold text-amber-400 flex items-center gap-2">
+            <span>🎪</span> ĐIỀU KHIỂN LÔ TÔ ONLINE (VÁN #{gameState.roundId})
+          </h2>
+          <p className="text-xs text-slate-400">
+            Đã gọi: <strong className="text-amber-300">{gameState.calledNumbers.length}/90 số</strong> •{' '}
+            {gameState.activeTicketCount} vé đang dò
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Nút quay số thủ công */}
+          <button
+            onClick={handleSpinNext}
+            disabled={gameState.isSpinning}
+            className={`
+              px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md transition-all
+              ${
+                gameState.isSpinning
+                  ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 hover:brightness-110 active:scale-95'
+              }
+            `}
+          >
+            <span>🎲</span>
+            <span>{gameState.isSpinning ? 'Đang quay...' : 'Quay Số Tiếp'}</span>
+          </button>
+
+          {/* Bật / Tắt quay tự động */}
+          <button
+            onClick={handleToggleAuto}
+            className={`
+              px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all
+              ${
+                gameState.isAutoSpin
+                  ? 'bg-emerald-600/30 border border-emerald-500 text-emerald-300'
+                  : 'bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200'
+              }
+            `}
+          >
+            <span>{gameState.isAutoSpin ? '🟢 Tự động: BẬT' : '⚪ Tự động: TẮT'}</span>
+          </button>
+
+          {/* Bắt đầu ván mới */}
+          <button
+            onClick={handleResetRound}
+            className="px-3 py-2 rounded-xl bg-red-950/40 border border-red-500/40 text-red-400 hover:bg-red-900/60 font-semibold text-xs transition-all"
+          >
+            🔄 Ván mới
+          </button>
+        </div>
+      </div>
+
+      {/* 2. PHÁT VÉ RIÊNG CHO TỪNG THIẾT BỊ / ĐIỆN THOẠI KHÁN GIẢ */}
+      <div className="bg-gradient-to-r from-amber-950/70 via-slate-900 to-amber-950/70 p-3.5 rounded-2xl border border-yellow-500/50 shadow-md flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-yellow-500/20 border border-yellow-400/50 flex items-center justify-center text-xl shadow-inner">
+            📱
+          </div>
+          <div>
+            <div className="text-xs font-black text-yellow-300 flex items-center gap-2">
+              <span>PHÁT VÉ ĐIỆN TỬ CHO TỪNG KHÁN GIẢ (ĐIỆN THOẠI)</span>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[9px] font-mono border border-emerald-500/40">
+                🟢 Real-time Sync
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 mt-0.5">
+              Khán giả truy cập: <strong className="text-white font-mono">{networkInfo?.ticketUrl || 'http://localhost:3000/ve'}</strong> (hoặc quét mã QR)
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const url = networkInfo?.ticketUrl || window.location.origin + '/ve';
+              navigator.clipboard.writeText(url);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2500);
+            }}
+            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 flex items-center gap-1.5 active:scale-95 transition-all shadow"
+          >
+            <span>{copied ? '✓ Đã chép link' : '📋 Sao chép link vé'}</span>
+          </button>
+
+          <button
+            onClick={() => setShowQr(true)}
+            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 hover:brightness-110 text-slate-950 text-xs font-black shadow flex items-center gap-1.5 active:scale-95 transition-all"
+          >
+            <span>🔍 Mở Mã QR</span>
+          </button>
+        </div>
+      </div>
+
+      {/* MODAL XEM MÃ QR PHÁT VÉ */}
+      {showQr && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-sm rounded-3xl bg-slate-950 border-2 border-yellow-400 p-6 text-center text-white shadow-2xl flex flex-col items-center">
+            <button
+              onClick={() => setShowQr(false)}
+              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center text-sm shadow"
+            >
+              ✕
+            </button>
+
+            <span className="text-3xl mb-1">📱 🎪 📱</span>
+            <h3 className="text-base font-black text-yellow-300 uppercase tracking-wide">
+              MÃ QR CẦM VÉ TRÊN TAY
+            </h3>
+            <p className="text-[11px] text-slate-300 mt-1 mb-4 leading-relaxed">
+              Khán giả quét mã này bằng Camera điện thoại để nhận <strong>1 tờ vé riêng biệt</strong>, tự động dò số đồng bộ với bàn quay!
+            </p>
+
+            <div className="p-3 bg-white rounded-2xl shadow-xl border-4 border-yellow-400">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+                  networkInfo?.ticketUrl || window.location.origin + '/ve'
+                )}`}
+                alt="QR Code Lô Tô Ticket"
+                className="w-48 h-48 object-contain"
+              />
+            </div>
+
+            <div className="mt-4 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-[11px] font-mono text-amber-300 break-all select-all">
+              {networkInfo?.ticketUrl || window.location.origin + '/ve'}
+            </div>
+
+            <button
+              onClick={() => setShowQr(false)}
+              className="mt-4 w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs"
+            >
+              Đóng lại
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 3. CẤU HÌNH TỐC ĐỘ QUAY TỰ ĐỘNG */}
+      <div className="flex items-center gap-4 bg-slate-950/60 p-3 rounded-xl border border-slate-800 text-xs">
+        <span className="text-slate-400">Thời gian giữa 2 lần gọi số:</span>
+        <input
+          type="range"
+          min="10"
+          max="30"
+          step="2"
+          value={gameState.spinInterval}
+          onChange={(e) => lotoEngine.setSpinInterval(Number(e.target.value))}
+          className="w-48 accent-amber-500 cursor-pointer"
+        />
+        <span className="font-mono font-bold text-amber-400">{gameState.spinInterval} giây</span>
+        <span className="text-[11px] text-slate-500 italic">
+          (Khuyên dùng 16-20s để AI hát trọn vẹn cả câu hò và chốt số)
+        </span>
+      </div>
+
+      {/* 3. CẤU HÌNH ÂM THANH & GIỌNG HÁT LÔ TÔ */}
+      <div className="bg-slate-950/70 p-3.5 rounded-xl border border-amber-500/30 flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-base">🎵</span>
+            <span className="text-xs font-bold text-amber-300 uppercase tracking-wide">
+              Âm Thanh & Giọng Hát Lô Tô Hội Chợ
+            </span>
+          </div>
+          <button
+            onClick={() => setShowSunoGuide(!showSunoGuide)}
+            className="text-[11px] text-amber-400 hover:text-amber-300 underline flex items-center gap-1 cursor-pointer"
+          >
+            <span>💡</span>
+            <span>{showSunoGuide ? 'Đóng hướng dẫn Suno AI' : 'Cách tạo bài hát bằng Suno AI'}</span>
+          </button>
+        </div>
+
+        {/* Modal / Hướng dẫn tạo bài hát Lô Tô có nhạc phổ */}
+        {showSunoGuide && (
+          <div className="p-3 rounded-lg bg-amber-950/30 border border-amber-500/40 text-xs flex flex-col gap-2 text-slate-300">
+            <div className="font-bold text-amber-300 flex items-center gap-1.5">
+              <span>🌟</span>
+              <span>Công thức tạo bài hát Lô Tô có nhạc phổ bằng Suno AI (hoàn toàn miễn phí):</span>
+            </div>
+            <p className="text-[11px] leading-relaxed">
+              1. Truy cập <span className="font-mono text-amber-200">suno.com</span> hoặc <span className="font-mono text-amber-200">udio.com</span>. Bấm <b>Create</b>.
+            </p>
+            <p className="text-[11px] leading-relaxed">
+              2. Bật chế độ <b>Custom Mode</b>. Dán Style Prompt sau:
+            </p>
+            <div className="bg-slate-900 p-2 rounded border border-slate-700 font-mono text-[10px] text-amber-300 select-all">
+              Vietnamese folk loto fair, acoustic organ, cajon and bo percussion, cheerful southern Vietnamese melody, bolero chachacha, lively festival
+            </div>
+            <p className="text-[11px] leading-relaxed">
+              3. Phần <b>Lyrics</b>: dán câu hò của số (ví dụ: <i>Trúc xinh trúc mọc đầu đình... Cờ ra con Mười Hai!</i>).
+            </p>
+            <p className="text-[11px] leading-relaxed">
+              4. Tải file MP3 về, đặt tên là <span className="font-mono text-emerald-400 font-bold">12.mp3</span> (hoặc số tương ứng) và lưu vào thư mục:
+              <br />
+              <code className="text-[10px] bg-slate-900 px-1 py-0.5 rounded text-amber-300">public/assets/loto/songs/</code>
+              <br />
+              Hệ thống sẽ <b>tự động ưu tiên phát file bài hát thật</b> này thay vì đọc AI!
+            </p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          {/* Lựa chọn giọng MC xướng */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-slate-400 font-semibold text-[11px]">Giọng MC Xướng Số:</span>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => {
+                  setLotoVoice('vi-VN-NamMinhNeural');
+                  soundEngine.setLotoVoice('vi-VN-NamMinhNeural');
+                }}
+                className={`py-2 px-2.5 rounded-lg border font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all ${
+                  lotoVoice === 'vi-VN-NamMinhNeural'
+                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md scale-[1.02]'
+                    : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                <span>🧔</span>
+                <span>Nam Minh (Hào sảng)</span>
+              </button>
+              <button
+                onClick={() => {
+                  setLotoVoice('vi-VN-HoaiMyNeural');
+                  soundEngine.setLotoVoice('vi-VN-HoaiMyNeural');
+                }}
+                className={`py-2 px-2.5 rounded-lg border font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all ${
+                  lotoVoice === 'vi-VN-HoaiMyNeural'
+                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md scale-[1.02]'
+                    : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                <span>👩</span>
+                <span>Hoài My (Ngọt ngào)</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Hòa âm Beat Đờn Organ Hội Chợ */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-slate-400 font-semibold text-[11px]">Beat Đờn Organ & Trống Bo:</span>
+            <label className="flex items-center gap-2 p-2 rounded-lg bg-slate-900 border border-slate-800 cursor-pointer hover:border-slate-700 select-none">
+              <input
+                type="checkbox"
+                checked={useBeat}
+                onChange={(e) => {
+                  setUseBeat(e.target.checked);
+                  soundEngine.setLotoUseBeat(e.target.checked);
+                }}
+                className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+              />
+              <span className="text-[11px] text-slate-200">
+                Tự động đệm beat đàn Organ + Reverb sân khấu khi hô số
+              </span>
+            </label>
+          </div>
+        </div>
+
+        {/* Trạng thái kho bài hát thực tế */}
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-900 text-[11px]">
+          <span className="text-slate-400">Kho bài hát thực tế:</span>
+          {availableSongs.length > 0 ? (
+            availableSongs.map((s) => (
+              <span
+                key={s}
+                className="px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-500/60 text-emerald-300 font-mono font-bold"
+              >
+                #{s} (MP3 có nhạc phổ)
+              </span>
+            ))
+          ) : (
+            <span className="text-slate-500 italic">Chưa có file bài hát nào trong /assets/loto/songs/</span>
+          )}
+        </div>
+      </div>
+
+      {/* 4. BỘ TEST NHANH GIẢ LẬP & HÁT LÔ TÔ */}
+      <div className="flex flex-wrap items-center gap-2 bg-slate-950/40 p-3 rounded-xl border border-slate-800/80">
+        <span className="text-xs font-semibold text-slate-400">Hát & Test:</span>
+        <button
+          onClick={() => {
+            soundEngine.playLotoCall(12);
+          }}
+          className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-red-600 via-rose-500 to-amber-500 hover:brightness-110 text-[11px] text-white font-bold border border-yellow-300 shadow flex items-center gap-1 active:scale-95 transition-all"
+        >
+          <span>🎤</span>
+          <span>Nghe Hát Số 12 (Có Nhạc Phổ & Đàn Organ)</span>
+        </button>
+        <button
+          onClick={() => soundEngine.stopLotoCall()}
+          className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold border border-slate-700 shadow flex items-center gap-1 active:scale-95 transition-all"
+        >
+          <span>⏹️</span>
+          <span>Dừng tiếng</span>
+        </button>
+        <button
+          onClick={handleSimulatePlayer}
+          className="px-3 py-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 text-[11px] font-bold border border-emerald-500/50 shadow flex items-center gap-1 active:scale-95 transition-all"
+        >
+          <span>👥</span>
+          <span>+ Thêm người chơi giả lập</span>
+        </button>
+        <button
+          onClick={handleSimulateWin}
+          className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-600 to-yellow-500 hover:brightness-110 text-slate-950 font-black text-[11px] border border-yellow-200 shadow-[0_0_10px_rgba(245,158,11,0.5)] flex items-center gap-1 active:scale-95 transition-all"
+        >
+          <span>👑</span>
+          <span>⚡ Test nổ KINH!</span>
+        </button>
+      </div>
+
+      {/* 5. ĐỌC CÂU BẤT KỲ TRÊN LIVE */}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={customSpeak}
+          onChange={(e) => setCustomSpeak(e.target.value)}
+          placeholder="Nhập thông báo hoặc lời chào của MC..."
+          onKeyDown={(e) => e.key === 'Enter' && handleSpeak()}
+          className="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+        />
+        <button
+          onClick={handleSpeak}
+          className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase transition-all"
+        >
+          Đọc ngay
+        </button>
+      </div>
+    </div>
+  );
+};

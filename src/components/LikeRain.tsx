@@ -1,19 +1,48 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
+export interface LikeBarProps {
+  progress: number;
+  goal: number;
+  raining: boolean;
+  isRelative?: boolean;
+  customLabel?: string;
+  customRainingLabel?: string;
+  className?: string;
+}
+
 // Bar under the chant that fills with likes; every `goal` likes the hall rains flowers for a minute.
-export const LikeBar: React.FC<{ progress: number; goal: number; raining: boolean }> = ({ progress, goal, raining }) => (
-  <div className="absolute top-[16.8%] left-1/2 -translate-x-1/2 w-[72%] z-30 pointer-events-none select-none font-temple">
-    <div className="relative h-3 rounded-full border border-[#c9973f]/70 bg-black/45 overflow-hidden">
-      <div
-        className="absolute inset-y-0 left-0 rounded-full bg-linear-to-r from-pink-400 via-pink-300 to-amber-200 transition-[width] duration-200"
-        style={{ width: `${raining ? 100 : Math.min(100, (progress / goal) * 100)}%` }}
-      />
-      <div className="absolute inset-0 flex items-center justify-center text-[7.5px] font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
-        {raining ? '🌸 Mưa hoa ban phước lành 🌸' : `❤️ ${progress}/${goal} tim – Mưa hoa sen, gửi ngàn lời chúc bình an!`}
+export const LikeBar: React.FC<LikeBarProps> = ({
+  progress,
+  goal,
+  raining,
+  isRelative = false,
+  customLabel,
+  customRainingLabel,
+  className = '',
+}) => {
+  const defaultIdle = `❤️ ${progress}/${goal} tim – Mưa hoa sen, gửi ngàn lời chúc bình an!`;
+  const defaultRaining = '🌸 Mưa hoa ban phước lành 🌸';
+
+  return (
+    <div
+      className={
+        isRelative
+          ? `relative w-full z-30 select-none ${className}`
+          : `absolute top-[16.8%] left-1/2 -translate-x-1/2 w-[72%] z-30 pointer-events-none select-none font-temple ${className}`
+      }
+    >
+      <div className="relative h-3.5 rounded-full border border-[#c9973f]/70 bg-black/60 overflow-hidden shadow-inner">
+        <div
+          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-pink-500 via-rose-400 to-amber-300 transition-[width] duration-200"
+          style={{ width: `${raining ? 100 : Math.min(100, (progress / goal) * 100)}%` }}
+        />
+        <div className="absolute inset-0 flex items-center justify-center text-[7.5px] font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] px-2 truncate">
+          {raining ? (customRainingLabel || defaultRaining) : (customLabel || defaultIdle)}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // Pink lotus petals falling over the whole hall until `until` (ms timestamp)
 export const FlowerRain: React.FC<{ until: number }> = ({ until }) => {

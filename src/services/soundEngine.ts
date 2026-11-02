@@ -158,6 +158,11 @@ class SoundEngine {
   private priorityQueue: string[] = []; // "Đọc ngay": read right after the current sentence, even mid-lecture
   private isSpeaking = false;
   private speechRate = 1;
+  private ttsVoice = 'vi-VN-HoaiMyNeural'; // default voice (Hoài My for Lô Tô / smooth tone)
+
+  public setVoice(voice: string) {
+    this.ttsVoice = voice;
+  }
 
   // Real Buddhist background music tracks
   private bgmAudio: HTMLAudioElement | null = null;
@@ -178,6 +183,11 @@ class SoundEngine {
 
   // Anti-spam combo cooldown map: "dù x1 hay x5 chỉ đọc 1 lần thôi"
   private lastGiftAckMap: Map<string, number> = new Map();
+
+  // Lô Tô Fairground Singing & Music Engine
+  private lotoCurrentAudio: HTMLAudioElement | null = null;
+  private lotoVoice = 'vi-VN-NamMinhNeural'; // Default: Nam Minh (hào sảng, ấm áp, đậm chất MC hội chợ)
+  private lotoUseBeat = true;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -363,7 +373,7 @@ class SoundEngine {
 
     // Lectures read a little slower than thank-you lines
     const lectureRate = Math.max(0.6, this.speechRate - 0.1).toFixed(2);
-    const urlFor = (k: number) => `/api/tts?rate=${lectureRate}&text=${encodeURIComponent(this.dharmaParagraphs[k])}`;
+    const urlFor = (k: number) => `/api/tts?voice=${encodeURIComponent(this.ttsVoice)}&rate=${lectureRate}&text=${encodeURIComponent(this.dharmaParagraphs[k])}`;
     const audio = new Audio(urlFor(i));
     audio.volume = 1.0;
     this.dharmaAudio = audio;
@@ -590,6 +600,15 @@ class SoundEngine {
     if (!this.isSpeaking && !this.isDharmaActive) this.processQueue();
   }
 
+  /**
+   * Standard voice queue: reads in FIFO order
+   */
+  public speak(text: string) {
+    if (!text || !text.trim()) return;
+    this.speechQueue.push(text.trim());
+    if (!this.isSpeaking && !this.isDharmaActive) this.processQueue();
+  }
+
   private lastSpokeAt = Date.now();
 
   // Lines waiting to be read (not counting the one playing)
@@ -615,7 +634,7 @@ class SoundEngine {
     this.setBgmVolume(this.bgmUserVolume);
 
     const nextText = (this.priorityQueue.shift() ?? this.speechQueue.shift())!;
-    const audioUrl = `/api/tts?rate=${this.speechRate}&text=${encodeURIComponent(nextText)}`;
+    const audioUrl = `/api/tts?voice=${encodeURIComponent(this.ttsVoice)}&rate=${this.speechRate}&text=${encodeURIComponent(nextText)}`;
     const audio = new Audio(audioUrl);
     audio.volume = 1.0;
     this.currentAudio = audio;
@@ -636,6 +655,73 @@ class SoundEngine {
         this.isSpeaking = false;
         this.setBgmVolume(this.bgmUserVolume);
       });
+    }
+  }
+
+  // ==========================================
+  // LÔ TÔ SINGING & SOUND METHODS
+  // ==========================================
+  public setLotoVoice(voice: string) {
+    this.lotoVoice = voice;
+  }
+
+  public getLotoVoice(): string {
+    return this.lotoVoice;
+  }
+
+  public setLotoUseBeat(useBeat: boolean) {
+    this.lotoUseBeat = useBeat;
+  }
+
+  public getLotoUseBeat(): boolean {
+    return this.lotoUseBeat;
+  }
+
+  /**
+   * Play Lô Tô singing / call audio:
+   * Prioritizes real MP3 song with full musical score & singing if present in /assets/loto/songs/{num}.mp3,
+   * otherwise plays rich chant synthesized with organ backing beat and stage echo.
+   */
+  public playLotoCall(num: number, _verse?: string, _spokenText?: string, onEnded?: () => void) {
+    if (typeof window === 'undefined') return;
+    this.initAudioContext();
+
+    if (this.lotoCurrentAudio) {
+      this.lotoCurrentAudio.pause();
+      this.lotoCurrentAudio = null;
+    }
+
+    const audioUrl = `/api/loto/call-audio?num=${num}&voice=${encodeURIComponent(
+      this.lotoVoice
+    )}&beat=${this.lotoUseBeat ? '1' : '0'}`;
+    const audio = new Audio(audioUrl);
+    audio.volume = 1.0;
+    this.lotoCurrentAudio = audio;
+
+    const handleDone = () => {
+      if (this.lotoCurrentAudio === audio) {
+        this.lotoCurrentAudio = null;
+      }
+      if (onEnded) onEnded();
+    };
+
+    audio.onended = handleDone;
+    audio.onerror = handleDone;
+
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        if (this.lotoCurrentAudio === audio) {
+          this.lotoCurrentAudio = null;
+        }
+      });
+    }
+  }
+
+  public stopLotoCall() {
+    if (this.lotoCurrentAudio) {
+      this.lotoCurrentAudio.pause();
+      this.lotoCurrentAudio = null;
     }
   }
 

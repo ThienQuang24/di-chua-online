@@ -1,7 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { HeaderNav } from './components/HeaderNav';
+import { HeaderNav, AppTheme } from './components/HeaderNav';
 import { ChanhDienStage } from './components/ChanhDienStage';
 import { StreamerDeck } from './components/StreamerDeck';
+import { LotoStage } from './components/loto/LotoStage';
+import { LotoStreamerPanel } from './components/loto/LotoStreamerPanel';
+import { MobileLotoTicketView } from './components/loto/MobileLotoTicketView';
+import { lotoEngine } from './services/loto/lotoEngine';
+import { NhauStage } from './components/nhau/NhauStage';
+import { NhauStreamerPanel } from './components/nhau/NhauStreamerPanel';
+import { nhauEngine } from './services/nhau/nhauEngine';
 import {
   StreamConfig,
   Devotee,
@@ -31,6 +38,12 @@ const RAIN_MS = 60 * 1000;
 // Only the live stage page (Link source in LIVE Studio) makes sound by default; the dashboard stays silent so audio never doubles
 const pageParams = new URLSearchParams(window.location.search);
 const IS_STAGE_PAGE = pageParams.get('view') === 'stage' || pageParams.get('obs') === 'true';
+const IS_TICKET_PAGE =
+  typeof window !== 'undefined' &&
+  (window.location.pathname.startsWith('/ve') ||
+    window.location.pathname.startsWith('/ticket') ||
+    pageParams.get('view') === 'ticket' ||
+    pageParams.get('view') === 've');
 
 const ROBE_COLORS = [
   '#38bdf8',
@@ -46,7 +59,7 @@ const ROBE_COLORS = [
 ];
 
 
-export default function App() {
+function MainApp() {
   const [config, setConfig] = useState<StreamConfig>({
     channelName: DEFAULT_CHANNEL_NAME,
     liveTitle: 'TÂM TỊNH TÂM AN',
@@ -70,6 +83,39 @@ export default function App() {
   // Standalone OBS mode check (?view=stage or ?obs=true)
   const [isStandaloneObs, setIsStandaloneObs] = useState(false);
   const [stageZoom, setStageZoom] = useState(1);
+
+  // Active theme: 'loto' (Gánh hát Lô Tô) | 'chua' (Đi Chùa Online) | 'nhau' (Quán Nhậu 123 Dô)
+  const [currentTheme, setCurrentTheme] = useState<AppTheme>(
+    (pageParams.get('theme') as AppTheme) || 'loto'
+  );
+
+  useEffect(() => {
+    if (currentTheme === 'loto') {
+      soundEngine.setVoice('vi-VN-HoaiMyNeural');
+      setConfig((prev) => ({
+        ...prev,
+        channelName: prev.channelName === DEFAULT_CHANNEL_NAME || prev.channelName === 'QUÁN NHẬU 1 2 3 DÔ!' ? 'GÁNH HÁT LÔ TÔ HỘI CHỢ' : prev.channelName,
+        liveTitle: 'GÁNH HÁT LÔ TÔ HỘI CHỢ',
+        subTitle: 'Gõ "ve" để nhận vé may mắn và cùng KINH nào!',
+      }));
+    } else if (currentTheme === 'nhau') {
+      soundEngine.setVoice('vi-VN-NamMinhNeural');
+      setConfig((prev) => ({
+        ...prev,
+        channelName: prev.channelName === DEFAULT_CHANNEL_NAME || prev.channelName === 'GÁNH HÁT LÔ TÔ HỘI CHỢ' ? 'QUÁN NHẬU 1 2 3 DÔ!' : prev.channelName,
+        liveTitle: 'QUÁN NHẬU BÌNH DÂN 1 2 3 DÔ!',
+        subTitle: 'Gõ "dzo" để cụng ly cả quán nha!',
+      }));
+    } else {
+      soundEngine.setVoice('vi-VN-NamMinhNeural');
+      setConfig((prev) => ({
+        ...prev,
+        channelName: prev.channelName === 'GÁNH HÁT LÔ TÔ HỘI CHỢ' || prev.channelName === 'QUÁN NHẬU 1 2 3 DÔ!' ? DEFAULT_CHANNEL_NAME : prev.channelName,
+        liveTitle: 'TÂM TỊNH TÂM AN',
+        subTitle: 'Gõ "adidaphat" để vào lễ Phật',
+      }));
+    }
+  }, [currentTheme]);
   useEffect(() => {
     if (!isStandaloneObs) return;
     const fit = () => setStageZoom(Math.min(window.innerWidth / 430, window.innerHeight / ((430 * 16) / 9)));
@@ -206,6 +252,31 @@ export default function App() {
     }
   }, []);
 
+  // Starter patrons/players for Quán Nhậu & Lô Tô so the stream looks vibrant immediately
+  useEffect(() => {
+    if (devotees.length === 0) {
+      if (currentTheme === 'nhau') {
+        setDevotees([
+          makeDevotee('Anh_Ba_SaiGon', 0, { displayName: 'Anh Ba' }),
+          makeDevotee('Tuan_Ken_Beer', 1, { displayName: 'Tuấn Ken' }),
+          makeDevotee('Hung_Bia_Hoi', 4, { displayName: 'Hùng Râu' }),
+          makeDevotee('Mai_Phuong', 5, { displayName: 'Mai Phương' }),
+        ]);
+      } else if (currentTheme === 'loto') {
+        setDevotees([
+          makeDevotee('Huong_Giang', 0, { displayName: 'Hương Giang' }),
+          makeDevotee('Minh_Tuan', 1, { displayName: 'Minh Tuấn' }),
+          makeDevotee('Bao_Ngoc', 2, { displayName: 'Bảo Ngọc' }),
+          makeDevotee('Hoang_Nam', 3, { displayName: 'Hoàng Nam' }),
+        ]);
+        lotoEngine.issueTicket('Huong_Giang', 'Hương Giang', '');
+        lotoEngine.issueTicket('Minh_Tuan', 'Minh Tuấn', '');
+        lotoEngine.issueTicket('Bao_Ngoc', 'Bảo Ngọc', '');
+        lotoEngine.issueTicket('Hoang_Nam', 'Hoàng Nam', '');
+      }
+    }
+  }, [currentTheme]);
+
 
   // Real Buddhist music background lifecycle
   useEffect(() => {
@@ -290,17 +361,30 @@ export default function App() {
       // TOP THÀNH TÂM: every coin of a gift is worth 10 points
       addMerit(cleanUser, totalDiamonds * POINTS_PER_COIN, avatarUrl, totalDiamonds);
 
-      // Update Devotee Crowd (only if they already entered with "adidaphat")
+      if (currentTheme === 'nhau') {
+        nhauEngine.addDonation(cleanUser, cleanUser, avatarUrl, giftName, totalDiamonds);
+        const lowerGift = giftName.toLowerCase();
+        if (lowerGift.includes('bánh') || lowerGift.includes('cake') || lowerGift.includes('nến') || lowerGift.includes('vương miện') || lowerGift.includes('crown')) {
+          nhauEngine.triggerBirthday(cleanUser, `Đã tặng ${giftName} tổ chức sinh nhật linh đình!`, avatarUrl);
+        }
+      }
+
+      // Update Devotee Crowd (in Lô Tô and Quán Nhậu, gift donors enter immediately as VIP)
       addOrUpdateDevotee(
         cleanUser,
         (d) => ({
           isVip: true,
           totalDiamonds: (d?.totalDiamonds || 0) + totalDiamonds,
-          activeComment: `${prayerMeaning} · ${maskBanned(cleanUser)} dâng ${giftName}`,
+          activeComment:
+            currentTheme === 'nhau'
+              ? `🍻 ${maskBanned(cleanUser)} bao ${giftName}`
+              : currentTheme === 'loto'
+              ? `🎫 ${maskBanned(cleanUser)} ủng hộ ${giftName}`
+              : `${prayerMeaning} · ${maskBanned(cleanUser)} dâng ${giftName}`,
           commentTimestamp: now,
           avatarUrl: avatarUrl || d?.avatarUrl,
         }),
-        false
+        currentTheme !== 'chua'
       );
 
       setTimeout(() => {
@@ -356,10 +440,30 @@ export default function App() {
     setComments((prev) => [...prev.slice(-30), newComment]);
     addMerit(cleanUser, 1, avatarUrl); // one comment = one point
 
+    if (currentTheme === 'loto') {
+      lotoEngine.issueTicket(cleanUser, cleanUser, avatarUrl);
+    } else if (currentTheme === 'nhau') {
+      const lower = commentText.toLowerCase();
+      if (lower.includes('dzo') || lower.includes('zo') || lower.includes('123') || lower.includes('uong') || lower.includes('cheers') || lower.includes('can ly')) {
+        nhauEngine.triggerCheer();
+      } else if (lower.includes('cmsn') || lower.includes('sinh nhat') || lower.includes('sinh nhật') || lower.includes('happy birthday') || lower.includes('snvv')) {
+        let targetName = cleanUser;
+        const match = commentText.match(/(?:cmsn|sinh nhật|sinh nhat|chúc mừng sinh nhật|snvv)\s+([A-Za-z0-9_À-ỹ\s]+)/i);
+        if (match && match[1]?.trim()) {
+          targetName = match[1].trim();
+        }
+        nhauEngine.triggerBirthday(targetName, commentText, avatarUrl);
+      } else {
+        nhauEngine.addConfession(cleanUser, commentText);
+      }
+    }
+
+    const allowNewDevotee = currentTheme === 'chua' ? isAdidaphat : true;
+
     addOrUpdateDevotee(
       cleanUser,
       (d) => ({ activeComment: maskBanned(commentText), commentTimestamp: now, avatarUrl: avatarUrl || d?.avatarUrl }),
-      isAdidaphat
+      allowNewDevotee
     );
 
     // Answer a prayer in the comment with a blessing for that topic (never during a lecture, rate-limited)
@@ -419,6 +523,11 @@ export default function App() {
   const newJoinersRef = useRef<string[]>([]);
   const greetedRef = useRef<Set<string>>(new Set());
   const handleJoin = (name: string, avatarUrl = '') => {
+    if (currentTheme === 'loto') {
+      lotoEngine.issueTicket(name, name, avatarUrl);
+    } else if (currentTheme === 'nhau') {
+      nhauEngine.addGuest(name, name, avatarUrl);
+    }
     // Anyone still around 10s after joining kneels in the hall (commenting adidaphat seats them sooner)
     setTimeout(() => addOrUpdateDevotee(name, (d) => ({ avatarUrl: avatarUrl || d?.avatarUrl })), SEAT_AFTER_JOIN_MS);
     if (greetedRef.current.has(name) || newJoinersRef.current.includes(name)) return;
@@ -452,6 +561,14 @@ export default function App() {
       setConfig((prev) => ({ ...prev, channelName: text }));
       soundEngine.setChannelName(text);
     }
+    if (action === 'setTheme' && text) {
+      setCurrentTheme(text as AppTheme);
+    }
+    if (action === 'loto_spin') lotoEngine.spinNext();
+    if (action === 'loto_reset') lotoEngine.resetRound();
+    if (action === 'loto_auto_spin') lotoEngine.setAutoSpin(text === '1' || text === 'true');
+    if (action === 'loto_interval' && Number(text) > 0) lotoEngine.setSpinInterval(Number(text));
+
     if (!isStandaloneObs) return;
     if (action === 'speak' && text) soundEngine.speakNow(text);
     if (action === 'shareReminder') remindShare();
@@ -636,6 +753,34 @@ export default function App() {
           console.error('SSE like parse error', err);
         }
       });
+
+      eventSource.addEventListener('loto_win', (e) => {
+        try {
+          const winner = JSON.parse(e.data);
+          lotoEngine.setExternalWinner(winner);
+          addOrUpdateDevotee(
+            winner.username,
+            () => ({ displayName: winner.displayName, avatarUrl: winner.avatarUrl }),
+            true
+          );
+        } catch (err) {
+          console.error('SSE loto_win error', err);
+        }
+      });
+
+      eventSource.addEventListener('loto_new_player', (e) => {
+        try {
+          const player = JSON.parse(e.data);
+          lotoEngine.issueTicket(player.username, player.displayName, '');
+          addOrUpdateDevotee(
+            player.username,
+            () => ({ displayName: player.displayName }),
+            true
+          );
+        } catch (err) {
+          console.error('SSE loto_new_player error', err);
+        }
+      });
     } catch (err) {
       console.error('SSE connection error:', err);
     }
@@ -689,24 +834,46 @@ export default function App() {
       <div className="w-screen h-screen bg-[#070302] flex items-center justify-center p-0 m-0 overflow-hidden">
         {/* Stage is laid out at 430px wide; zoom it to fill the 1080x1920 capture */}
         <div className="w-[430px] flex flex-col justify-center" style={{ zoom: stageZoom }}>
-          <ChanhDienStage
-            onSpotlightStart={readPendingThanks}
-            spotlightRequests={spotlightRequests}
-            likeProgress={likeProgress}
-            rainUntil={rainUntil}
-            config={config}
-            devotees={devotees}
-            offerers={offerers}
-            offerRequests={offerRequests}
-            currentGift={currentGift}
-            leaderboardDonors={leaderboardDonors}
-            auraIntensity={auraIntensity}
-            isGiftActive={isGiftActive}
-            onRingBell={handleRingBell}
-            onPlayGong={handlePlayGong}
-            onToggleBgm={handleToggleBgm}
-            isBgmPlaying={config.bgmEnabled}
-          />
+          {currentTheme === 'loto' ? (
+            <LotoStage
+              config={config}
+              devotees={devotees}
+              currentGift={currentGift}
+              likeProgress={likeProgress}
+              rainUntil={rainUntil}
+              isBgmPlaying={config.bgmEnabled}
+              onToggleBgm={handleToggleBgm}
+            />
+          ) : currentTheme === 'nhau' ? (
+            <NhauStage
+              config={config}
+              devotees={devotees}
+              currentGift={currentGift}
+              likeProgress={likeProgress}
+              rainUntil={rainUntil}
+              isBgmPlaying={config.bgmEnabled}
+              onToggleBgm={handleToggleBgm}
+            />
+          ) : (
+            <ChanhDienStage
+              onSpotlightStart={readPendingThanks}
+              spotlightRequests={spotlightRequests}
+              likeProgress={likeProgress}
+              rainUntil={rainUntil}
+              config={config}
+              devotees={devotees}
+              offerers={offerers}
+              offerRequests={offerRequests}
+              currentGift={currentGift}
+              leaderboardDonors={leaderboardDonors}
+              auraIntensity={auraIntensity}
+              isGiftActive={isGiftActive}
+              onRingBell={handleRingBell}
+              onPlayGong={handlePlayGong}
+              onToggleBgm={handleToggleBgm}
+              isBgmPlaying={config.bgmEnabled}
+            />
+          )}
         </div>
       </div>
     );
@@ -717,6 +884,11 @@ export default function App() {
       <HeaderNav
         viewMode={config.viewMode}
         onChangeViewMode={(mode) => setConfig((prev) => ({ ...prev, viewMode: mode }))}
+        currentTheme={currentTheme}
+        onChangeTheme={(theme) => {
+          setCurrentTheme(theme);
+          sendControl('setTheme', theme);
+        }}
       />
 
       <main className="flex-1 p-2 md:p-6 max-w-7xl mx-auto w-full flex flex-col">
@@ -725,6 +897,101 @@ export default function App() {
             {/* Left: 9:16 Vertical TikTok Live Stage */}
             <div className="lg:col-span-5 flex justify-center">
               <div className="w-full max-w-[430px]">
+                {currentTheme === 'loto' ? (
+                  <LotoStage
+                    config={config}
+                    devotees={devotees}
+                    currentGift={currentGift}
+                    likeProgress={likeProgress}
+                    rainUntil={rainUntil}
+                    isBgmPlaying={config.bgmEnabled}
+                    onToggleBgm={handleToggleBgm}
+                  />
+                ) : currentTheme === 'nhau' ? (
+                  <NhauStage
+                    config={config}
+                    devotees={devotees}
+                    currentGift={currentGift}
+                    likeProgress={likeProgress}
+                    rainUntil={rainUntil}
+                    isBgmPlaying={config.bgmEnabled}
+                    onToggleBgm={handleToggleBgm}
+                  />
+                ) : (
+                  <ChanhDienStage
+                    onSpotlightStart={readPendingThanks}
+                    spotlightRequests={spotlightRequests}
+                    likeProgress={likeProgress}
+                    rainUntil={rainUntil}
+                    config={config}
+                    devotees={devotees}
+                    offerers={offerers}
+                    offerRequests={offerRequests}
+                    currentGift={currentGift}
+                    leaderboardDonors={leaderboardDonors}
+                    auraIntensity={auraIntensity}
+                    isGiftActive={isGiftActive}
+                    onRingBell={handleRingBell}
+                    onPlayGong={handlePlayGong}
+                    onToggleBgm={handleToggleBgm}
+                    isBgmPlaying={config.bgmEnabled}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Right: Streamer Deck + Theme Specific Panel */}
+            <div className="lg:col-span-7 flex flex-col gap-4">
+              {currentTheme === 'loto' && (
+                <LotoStreamerPanel
+                  onAddDevotee={(name, avatar) =>
+                    addOrUpdateDevotee(name, (d) => ({ avatarUrl: avatar || d?.avatarUrl }), true)
+                  }
+                />
+              )}
+              {currentTheme === 'nhau' && (
+                <NhauStreamerPanel
+                  onAddDevotee={(name, avatar) =>
+                    addOrUpdateDevotee(name, (d) => ({ avatarUrl: avatar || d?.avatarUrl }), true)
+                  }
+                />
+              )}
+              <div className="h-[680px]">
+                <StreamerDeck
+                  config={config}
+                  onSaveChannelName={(name) => sendControl('setName', name)}
+                  onUpdateConfig={(updates) => setConfig((prev) => ({ ...prev, ...updates }))}
+                  tikTokStatus={tikTokStatus}
+                  onConnectTikTok={handleConnectTikTok}
+                  onDisconnectTikTok={handleDisconnectTikTok}
+                />
+              </div>
+            </div>
+          </div>
+        ) : config.viewMode === 'stage_only' ? (
+          <div className="flex-1 flex items-center justify-center py-2">
+            <div className="w-full max-w-[430px]">
+              {currentTheme === 'loto' ? (
+                <LotoStage
+                  config={config}
+                  devotees={devotees}
+                  currentGift={currentGift}
+                  likeProgress={likeProgress}
+                  rainUntil={rainUntil}
+                  isBgmPlaying={config.bgmEnabled}
+                  onToggleBgm={handleToggleBgm}
+                />
+              ) : currentTheme === 'nhau' ? (
+                <NhauStage
+                  config={config}
+                  devotees={devotees}
+                  currentGift={currentGift}
+                  likeProgress={likeProgress}
+                  rainUntil={rainUntil}
+                  isBgmPlaying={config.bgmEnabled}
+                  onToggleBgm={handleToggleBgm}
+                />
+              ) : (
                 <ChanhDienStage
                   onSpotlightStart={readPendingThanks}
                   spotlightRequests={spotlightRequests}
@@ -732,8 +999,8 @@ export default function App() {
                   rainUntil={rainUntil}
                   config={config}
                   devotees={devotees}
-            offerers={offerers}
-            offerRequests={offerRequests}
+                  offerers={offerers}
+                  offerRequests={offerRequests}
                   currentGift={currentGift}
                   leaderboardDonors={leaderboardDonors}
                   auraIntensity={auraIntensity}
@@ -743,11 +1010,26 @@ export default function App() {
                   onToggleBgm={handleToggleBgm}
                   isBgmPlaying={config.bgmEnabled}
                 />
-              </div>
+              )}
             </div>
-
-            {/* Right: Streamer Deck */}
-            <div className="lg:col-span-7 h-[780px]">
+          </div>
+        ) : (
+          <div className="flex-1 max-w-4xl mx-auto w-full flex flex-col gap-4">
+            {currentTheme === 'loto' && (
+              <LotoStreamerPanel
+                onAddDevotee={(name, avatar) =>
+                  addOrUpdateDevotee(name, (d) => ({ avatarUrl: avatar || d?.avatarUrl }), true)
+                }
+              />
+            )}
+            {currentTheme === 'nhau' && (
+              <NhauStreamerPanel
+                onAddDevotee={(name, avatar) =>
+                  addOrUpdateDevotee(name, (d) => ({ avatarUrl: avatar || d?.avatarUrl }), true)
+                }
+              />
+            )}
+            <div className="h-[750px]">
               <StreamerDeck
                 config={config}
                 onSaveChannelName={(name) => sendControl('setName', name)}
@@ -758,42 +1040,15 @@ export default function App() {
               />
             </div>
           </div>
-        ) : config.viewMode === 'stage_only' ? (
-          <div className="flex-1 flex items-center justify-center py-2">
-            <div className="w-full max-w-[430px]">
-              <ChanhDienStage
-                onSpotlightStart={readPendingThanks}
-                spotlightRequests={spotlightRequests}
-                likeProgress={likeProgress}
-                rainUntil={rainUntil}
-                config={config}
-                devotees={devotees}
-            offerers={offerers}
-            offerRequests={offerRequests}
-                currentGift={currentGift}
-                leaderboardDonors={leaderboardDonors}
-                auraIntensity={auraIntensity}
-                isGiftActive={isGiftActive}
-                onRingBell={handleRingBell}
-                onPlayGong={handlePlayGong}
-                onToggleBgm={handleToggleBgm}
-                isBgmPlaying={config.bgmEnabled}
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="flex-1 max-w-4xl mx-auto w-full h-[780px]">
-            <StreamerDeck
-              config={config}
-              onSaveChannelName={(name) => sendControl('setName', name)}
-              onUpdateConfig={(updates) => setConfig((prev) => ({ ...prev, ...updates }))}
-              tikTokStatus={tikTokStatus}
-              onConnectTikTok={handleConnectTikTok}
-              onDisconnectTikTok={handleDisconnectTikTok}
-            />
-          </div>
         )}
       </main>
     </div>
   );
+}
+
+export default function App() {
+  if (IS_TICKET_PAGE) {
+    return <MobileLotoTicketView />;
+  }
+  return <MainApp />;
 }

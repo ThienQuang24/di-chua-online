@@ -2,7 +2,7 @@
 cd /d "%~dp0"
 if not exist node_modules (
   echo Lan dau chay: dang cai thu vien, doi 1-2 phut...
-  call npm install
+  call npm install --legacy-peer-deps
 )
 echo Dang bat Di Chua Online... Dong cua so nay la tat app.
 echo Link cho TikTok LIVE Studio: http://lvh.me:3000/?view=stage
