@@ -432,15 +432,24 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
 
       {/* 4. BỘ TEST NHANH GIẢ LẬP & HÁT LÔ TÔ */}
       <div className="flex flex-wrap items-center gap-2 bg-slate-950/40 p-3 rounded-xl border border-slate-800/80">
-        <span className="text-xs font-semibold text-slate-400">Hát & Test:</span>
+        <span className="text-xs font-semibold text-slate-400">Nghe Thử Ca Sĩ Hát Thật:</span>
         <button
           onClick={() => {
             soundEngine.playLotoCall(12);
           }}
           className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-red-600 via-rose-500 to-amber-500 hover:brightness-110 text-[11px] text-white font-bold border border-yellow-300 shadow flex items-center gap-1 active:scale-95 transition-all"
         >
-          <span>🎤</span>
-          <span>Nghe Hát Số 12 (Có Nhạc Phổ & Đàn Organ)</span>
+          <span>🎵</span>
+          <span>Ca Sĩ Hát Thật Số 12 (Gánh Hương Nam)</span>
+        </button>
+        <button
+          onClick={() => {
+            soundEngine.playLotoCall(1);
+          }}
+          className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-500 hover:brightness-110 text-[11px] text-white font-bold border border-purple-300 shadow flex items-center gap-1 active:scale-95 transition-all"
+        >
+          <span>🎵</span>
+          <span>Ca Sĩ Hát Thật Số 1</span>
         </button>
         <button
           onClick={() => soundEngine.stopLotoCall()}
