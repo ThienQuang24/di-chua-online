@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { LotoCage } from './LotoCage';
 import { LotoWinnerCelebration } from './LotoWinnerCelebration';
 import { LotoFairCrowd } from './LotoFairCrowd';
-import { LotoLiveTicketsBoard } from './LotoLiveTicketsBoard';
+import { LotoPlayerTicketModal } from './LotoPlayerTicketModal';
 import { lotoEngine, LotoState, LotoTicket } from '../../services/loto/lotoEngine';
 import { soundEngine, formatUsernameForTts } from '../../services/soundEngine';
 import { GiftNotificationBanner } from '../GiftNotificationBanner';
@@ -85,15 +85,47 @@ export const LotoStage: React.FC<LotoStageProps> = ({
     return () => clearTimeout(t);
   }, [rainUntil]);
 
-  // Spotlight ticket to show (prefer selected player, otherwise highest marked count)
+  // Active ticket determination: prefer spotlightTicketUser if set, or selectedTicketUser
+  const currentTicketUsername = gameState.spotlightTicketUser || selectedTicketUser;
+  const isTicketModalOpen = Boolean((gameState.showSpotlightTicket || showTicket) && tickets.length > 0);
+
   const activeTicket = React.useMemo(() => {
     if (tickets.length === 0) return null;
-    if (selectedTicketUser) {
-      const found = tickets.find((t) => t.username.toLowerCase() === selectedTicketUser.toLowerCase());
+    if (currentTicketUsername) {
+      const found = tickets.find((t) => t.username.toLowerCase() === currentTicketUsername.toLowerCase());
       if (found) return found;
     }
     return [...tickets].sort((a, b) => b.markedCount - a.markedCount)[0];
-  }, [tickets, selectedTicketUser]);
+  }, [tickets, currentTicketUsername]);
+
+  const currentTicketIndex = React.useMemo(() => {
+    if (!activeTicket) return 0;
+    const idx = tickets.findIndex((t) => t.id === activeTicket.id);
+    return idx >= 0 ? idx : 0;
+  }, [tickets, activeTicket]);
+
+  const handleSelectUser = (username: string) => {
+    setSelectedTicketUser(username);
+    setShowTicket(true);
+    lotoEngine.setSpotlightTicket(username);
+  };
+
+  const handleCloseTicket = () => {
+    setShowTicket(false);
+    lotoEngine.closeSpotlightTicket();
+  };
+
+  const handlePrevTicket = () => {
+    if (tickets.length <= 1) return;
+    const nextIdx = (currentTicketIndex - 1 + tickets.length) % tickets.length;
+    handleSelectUser(tickets[nextIdx].username);
+  };
+
+  const handleNextTicket = () => {
+    if (tickets.length <= 1) return;
+    const nextIdx = (currentTicketIndex + 1) % tickets.length;
+    handleSelectUser(tickets[nextIdx].username);
+  };
 
   return (
     <div
@@ -196,131 +228,97 @@ export const LotoStage: React.FC<LotoStageProps> = ({
         </div>
       </div>
 
-      {/* 3. KHU VỰC BẢNG VÉ TRỰC TIẾP TRÊN MÀN HÌNH LIVE (TIKTOK STREAM BOARD) */}
-      {gameState.screenConfig?.showOnScreenTickets && (
-        <div className="relative z-30 w-full flex-1 flex flex-col justify-center px-1 my-0.5 overflow-hidden">
-          <LotoLiveTicketsBoard
-            tickets={tickets}
-            currentNumber={gameState.currentNumber}
-            screenConfig={gameState.screenConfig}
-            onSelectTicket={(username) => {
-              setSelectedTicketUser(username);
-              setShowTicket(true);
-            }}
-          />
-        </div>
-      )}
-
-      {/* 4. ĐÁM ĐÔNG KHÁN GIẢ HỘI CHỢ NGỒI DÒ VÉ TRÊN SÂN HỘI TRƯỜNG (KHÔNG ĐÈ LÊN SÂN KHẤU) */}
-      <div
-        className={`absolute inset-0 z-20 pointer-events-none transition-opacity duration-300 ${
-          gameState.screenConfig?.showOnScreenTickets ? 'opacity-25' : 'opacity-100'
-        }`}
-      >
+      {/* 4. ĐÁM ĐÔNG KHÁN GIẢ HỘI CHỢ NGỒI DÒ VÉ TRÊN SÂN HỘI TRƯỜNG (HOÀN TOÀN KHÔNG BỊ CHE KHUẤT) */}
+      <div className="absolute inset-0 z-20 pointer-events-none">
         <LotoFairCrowd
           devotees={devotees}
           currentNumber={gameState.currentNumber}
-          onSelectPlayer={(username) => {
-            setSelectedTicketUser(username);
-            setShowTicket(true);
-          }}
+          onSelectPlayer={(username) => handleSelectUser(username)}
         />
       </div>
 
-      {/* 5. MODAL XEM CHI TIẾT VÉ LÔ TÔ (CHỈ HIỆN KHI BẤM NÚT XEM, KHÔNG CHIẾM MÀN HÌNH MẶC ĐỊNH) */}
-      {activeTicket && showTicket && (
-        <div className="absolute inset-x-3 bottom-12 z-50 animate-in fade-in zoom-in-95 duration-200">
-          <div className="bg-slate-950/95 border-2 border-amber-500 rounded-2xl p-2.5 shadow-2xl backdrop-blur-md">
-            <div className="flex items-center justify-between mb-1.5">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm">🎫</span>
-                <span className="text-xs font-bold text-amber-300">
-                  Vé theo dõi: <strong className="text-white">{activeTicket.displayName}</strong>
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-amber-300 font-mono bg-amber-950 px-2 py-0.5 rounded-full border border-amber-500/40">
-                  Đã trúng: {activeTicket.markedCount}/15 số
-                </span>
-                <button
-                  onClick={() => setShowTicket(false)}
-                  className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center text-xs"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            {/* Bảng 3 dòng x 9 cột chuẩn Việt Nam */}
-            <div className="flex flex-col gap-0.5 bg-black/80 p-1.5 rounded-xl border border-amber-900/50">
-              {activeTicket.grid.map((row, rIdx) => (
-                <div key={rIdx} className="grid grid-cols-9 gap-0.5">
-                  {row.map((cell, cIdx) => (
-                    <div
-                      key={cIdx}
-                      className={`
-                        aspect-square flex items-center justify-center rounded text-[9.5px] font-bold font-mono transition-all
-                        ${
-                          cell.val === null
-                            ? 'bg-slate-900/40 text-transparent'
-                            : cell.isMarked
-                            ? 'bg-gradient-to-tr from-amber-400 to-yellow-300 text-slate-950 font-black shadow-[0_0_8px_#f59e0b]'
-                            : 'bg-slate-800/90 text-slate-200 border border-slate-700/60'
-                        }
-                      `}
-                    >
-                      {cell.val !== null ? (cell.val < 10 ? `0${cell.val}` : cell.val) : ''}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-            <div className="mt-1.5 text-center text-[9px] text-amber-400 font-medium">
-              Gõ "ve" trong chat để nhận vé may mắn của bạn!
-            </div>
-          </div>
-        </div>
+      {/* 5. TẤM VÉ CHỈ HIỆN LÊN KHI NHẤN VÀO KHÁN GIẢ HOẶC CHỌN VÉ */}
+      {isTicketModalOpen && activeTicket && (
+        <LotoPlayerTicketModal
+          ticket={activeTicket}
+          currentNumber={gameState.currentNumber}
+          onClose={handleCloseTicket}
+          onPrev={handlePrevTicket}
+          onNext={handleNextTicket}
+          totalTickets={tickets.length}
+          currentIndex={currentTicketIndex}
+        />
       )}
 
-      {/* 6. KHU VỰC ĐÁY: THANH ĐIỀU HƯỚNG GỌN GÀNG (KHÔNG CHE KHUẤT KHÁN GIẢ) */}
-      <div className="relative z-30 w-full max-w-[390px] mx-auto px-2 pb-2 flex items-center justify-between gap-1.5">
-        <div className="flex items-center gap-1.5">
+      {/* 6. KHU VỰC ĐÁY: THANH CHỌN VÉ NHANH & ĐIỀU HƯỚNG GỌN GÀNG */}
+      <div className="relative z-30 w-full max-w-[410px] mx-auto px-2 pb-2 flex flex-col gap-1.5">
+        {/* Hàng nút bấm xem vé các khán giả đang ngồi dò vé */}
+        {tickets.length > 0 && (
+          <div className="flex items-center gap-1 overflow-x-auto py-1 no-scrollbar px-1.5 bg-black/75 rounded-full border border-amber-500/40 backdrop-blur-md shadow-lg">
+            <span className="text-[8.5px] font-black text-amber-300 uppercase px-1.5 shrink-0 flex items-center gap-1">
+              <span>🎫</span>
+              <span>Dò vé:</span>
+            </span>
+            {tickets.map((t) => {
+              const isSelected = activeTicket?.username.toLowerCase() === t.username.toLowerCase();
+              const isWaiting = t.waitingNumbers.length > 0 && !t.hasWon;
+
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => handleSelectUser(t.username)}
+                  className={`
+                    px-2.5 py-0.5 rounded-full text-[8.5px] font-bold flex items-center gap-1 shrink-0 transition-all active:scale-95
+                    ${
+                      isSelected && isTicketModalOpen
+                        ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black shadow-md border border-yellow-200 scale-105'
+                        : isWaiting
+                        ? 'bg-red-950 text-red-200 border border-red-500 animate-pulse'
+                        : 'bg-slate-900/90 text-slate-300 border border-slate-700 hover:border-slate-500 hover:text-white'
+                    }
+                  `}
+                >
+                  <span>{t.displayName}</span>
+                  <span className="font-mono text-[8px] opacity-80">
+                    ({t.markedCount}/15)
+                  </span>
+                  {isWaiting && <span>🔥</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Các nút điều hướng đáy */}
+        <div className="flex items-center justify-between gap-1.5">
           <button
             onClick={() => setShowStageQr((prev) => !prev)}
             className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/85 border border-yellow-400/60 text-[8px] text-yellow-300 font-bold shadow-lg backdrop-blur-sm hover:brightness-110 active:scale-95 transition-all"
           >
             <span>📱</span>
-            <span>{showStageQr ? '✕ Đóng QR' : 'Quét QR'}</span>
+            <span>{showStageQr ? '✕ Đóng QR' : 'Quét QR Cầm Vé'}</span>
           </button>
 
-          <button
-            onClick={() =>
-              lotoEngine.setScreenConfig({
-                showOnScreenTickets: !gameState.screenConfig?.showOnScreenTickets,
-              })
-            }
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[8px] font-bold shadow-lg backdrop-blur-sm transition-all active:scale-95 ${
-              gameState.screenConfig?.showOnScreenTickets
-                ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 border border-yellow-300 shadow-[0_0_10px_rgba(245,158,11,0.5)]'
-                : 'bg-black/85 text-amber-300 border border-amber-500/50'
-            }`}
-          >
-            <span>📺</span>
-            <span>{gameState.screenConfig?.showOnScreenTickets ? 'Vé Live: BẬT' : 'Hiện Vé Live'}</span>
-          </button>
+          {activeTicket && (
+            <button
+              onClick={() => {
+                if (isTicketModalOpen) {
+                  handleCloseTicket();
+                } else {
+                  handleSelectUser(activeTicket.username);
+                }
+              }}
+              className="px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-bold text-[8px] shadow-lg flex items-center gap-1 transition-transform active:scale-95"
+            >
+              <span>🎫</span>
+              <span>
+                {isTicketModalOpen
+                  ? '✕ Đóng vé để ngắm khán phòng'
+                  : `Xem vé: ${activeTicket.displayName} (${activeTicket.markedCount}/15)`}
+              </span>
+            </button>
+          )}
         </div>
-
-        {activeTicket && (
-          <button
-            onClick={() => setShowTicket((prev) => !prev)}
-            className="px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-bold text-[8px] shadow-lg flex items-center gap-1 transition-transform active:scale-95"
-          >
-            <span>🎫</span>
-            <span>
-              {showTicket ? '✕ Đóng' : `Vé: ${activeTicket.displayName} (${activeTicket.markedCount}/15)`}
-            </span>
-          </button>
-        )}
       </div>
 
       {/* MODAL QR CODE XEM VÉ TRÊN ĐIỆN THOẠI TRÊN SÂN KHẤU LIVE */}

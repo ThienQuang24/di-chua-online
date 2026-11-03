@@ -51,6 +51,9 @@ export interface LotoState {
   historyWinners: LotoWinner[];
   activeTicketCount: number;
   screenConfig: LotoScreenConfig;
+  spotlightTicketUser: string | null;
+  showSpotlightTicket: boolean;
+  autoShowOnWaitingKin: boolean;
 }
 
 // Generate a authentic Vietnamese Lô Tô card: 3 rows, 9 columns.
@@ -121,6 +124,10 @@ class LotoEngineService {
     cycleIntervalSeconds: 8,
   };
 
+  private spotlightTicketUser: string | null = null;
+  private showSpotlightTicket: boolean = false;
+  private autoShowOnWaitingKin: boolean = true;
+
   private tickets: Map<string, LotoTicket> = new Map();
   private lastWinner: LotoWinner | null = null;
   private historyWinners: LotoWinner[] = [];
@@ -133,6 +140,36 @@ class LotoEngineService {
     // Start with auto-spin disabled until stream begins or owner turns it on
     this.isAutoSpin = false;
     this.seedInitialTickets(4);
+  }
+
+  public setSpotlightTicket(username: string | null) {
+    this.spotlightTicketUser = username ? username.toLowerCase() : null;
+    this.showSpotlightTicket = Boolean(username);
+    this.notify();
+  }
+
+  public closeSpotlightTicket() {
+    this.showSpotlightTicket = false;
+    this.notify();
+  }
+
+  public toggleSpotlightTicket(username?: string) {
+    if (this.showSpotlightTicket) {
+      if (!username || (this.spotlightTicketUser && this.spotlightTicketUser === username.toLowerCase())) {
+        this.showSpotlightTicket = false;
+      } else {
+        this.spotlightTicketUser = username.toLowerCase();
+      }
+    } else {
+      if (username) this.spotlightTicketUser = username.toLowerCase();
+      this.showSpotlightTicket = true;
+    }
+    this.notify();
+  }
+
+  public setAutoShowOnWaitingKin(enabled: boolean) {
+    this.autoShowOnWaitingKin = enabled;
+    this.notify();
   }
 
   public getScreenConfig(): LotoScreenConfig {
@@ -162,12 +199,18 @@ class LotoEngineService {
     const key = username.toLowerCase();
     this.tickets.delete(key);
     this.screenConfig.pinnedUsernames = this.screenConfig.pinnedUsernames.filter((u) => u !== key);
+    if (this.spotlightTicketUser === key) {
+      this.showSpotlightTicket = false;
+      this.spotlightTicketUser = null;
+    }
     this.notify();
   }
 
   public clearAllTickets() {
     this.tickets.clear();
     this.screenConfig.pinnedUsernames = [];
+    this.showSpotlightTicket = false;
+    this.spotlightTicketUser = null;
     this.notify();
   }
 
@@ -188,12 +231,12 @@ class LotoEngineService {
 
   public seedInitialTickets(count: number = 4) {
     const defaultViewers = [
-      { user: 'hoang_nam', name: 'Hoàng Nam (TikTok)', avatar: '/assets/loto/patron-1.png' },
-      { user: 'linh_dan', name: 'Linh Đan (Fan Cứng)', avatar: '/assets/nhau/patron-female-1.png' },
-      { user: 'minh_tuan', name: 'Minh Tuấn (VIP)', avatar: '/assets/nhau/patron-1.png' },
-      { user: 'thanh_hang', name: 'Thanh Hằng (Góp Tim)', avatar: '/assets/nhau/patron-female-2.png' },
+      { user: 'huong_giang', name: 'Hương Giang', avatar: '/assets/loto/patron-1.png' },
+      { user: 'minh_tuan', name: 'Minh Tuấn', avatar: '/assets/nhau/patron-1.png' },
       { user: 'bao_ngoc', name: 'Bảo Ngọc', avatar: '/assets/loto/patron-2.png' },
-      { user: 'quoc_bao', name: 'Quốc Bảo', avatar: '/assets/nhau/patron-uncle-1.png' },
+      { user: 'hoang_nam', name: 'Hoàng Nam', avatar: '/assets/nhau/patron-female-1.png' },
+      { user: 'linh_dan', name: 'Linh Đan (Fan Cứng)', avatar: '/assets/nhau/patron-female-2.png' },
+      { user: 'thanh_hang', name: 'Thanh Hằng', avatar: '/assets/nhau/patron-uncle-1.png' },
     ];
     for (let i = 0; i < Math.min(count, defaultViewers.length); i++) {
       const v = defaultViewers[i];
@@ -276,6 +319,9 @@ class LotoEngineService {
       historyWinners: [...this.historyWinners],
       activeTicketCount: this.tickets.size,
       screenConfig: this.getScreenConfig(),
+      spotlightTicketUser: this.spotlightTicketUser,
+      showSpotlightTicket: this.showSpotlightTicket,
+      autoShowOnWaitingKin: this.autoShowOnWaitingKin,
     };
   }
 

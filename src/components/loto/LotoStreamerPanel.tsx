@@ -295,107 +295,69 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
         </div>
       </div>
 
-      {/* 2. BẢNG VÉ TRỰC TIẾP TRÊN MÀN HÌNH TIKTOK LIVE */}
+      {/* 2. BẢNG VÉ & CHIẾU VÉ KHÁN GIẢ TRỰC TIẾP TRÊN LIVE */}
       <div className="bg-gradient-to-r from-amber-950/80 via-slate-900 to-amber-950/80 p-4 rounded-2xl border-2 border-amber-500/60 shadow-xl flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-amber-500/30">
           <div className="flex items-center gap-2.5">
-            <span className="text-2xl">📺</span>
+            <span className="text-2xl">🎟️</span>
             <div>
               <h3 className="text-sm font-black text-amber-300 flex items-center gap-2">
-                <span>BẢNG VÉ TRỰC TIẾP TRÊN MÀN HÌNH LIVE (TIKTOK STREAM)</span>
-                <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[9px] font-black uppercase tracking-wider animate-pulse">
-                  Mỗi người 1 vé trên màn hình
+                <span>VÉ KHÁN GIẢ TRỰC TIẾP (BẤM VÀO NGƯỜI ĐỂ HIỆN VÉ)</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black uppercase tracking-wider">
+                  Khán phòng thoáng đãng
                 </span>
               </h3>
               <p className="text-[11px] text-slate-300">
-                Vé của người xem hiển thị trực tiếp lên video live stream, tự động đóng dấu đỏ khi bóng số rơi ra!
+                Toàn cảnh khán giả ngồi dò vé 100% rõ nét. Chỉ khi bấm vào người ngồi (hoặc chọn bên dưới), vé của họ mới phóng to lên màn hình!
               </p>
             </div>
           </div>
 
-          {/* Công tắc BẬT / TẮT hiển thị vé trên màn hình */}
+          {/* Trạng thái chiếu vé hiện tại */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={() =>
-                lotoEngine.setScreenConfig({
-                  showOnScreenTickets: !gameState.screenConfig?.showOnScreenTickets,
-                })
-              }
-              className={`px-3.5 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow ${
-                gameState.screenConfig?.showOnScreenTickets
-                  ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.6)]'
-                  : 'bg-slate-800 text-slate-400 border border-slate-700'
-              }`}
-            >
-              <span>{gameState.screenConfig?.showOnScreenTickets ? '🟢 Đang HIỆN trên Live' : '⚪ Đang ẨN'}</span>
-            </button>
+            {gameState.showSpotlightTicket ? (
+              <button
+                onClick={() => lotoEngine.closeSpotlightTicket()}
+                className="px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.6)] active:scale-95"
+              >
+                <span>✕</span>
+                <span>Đóng vé đang chiếu</span>
+              </button>
+            ) : (
+              <span className="text-[11px] text-slate-400 font-semibold px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800">
+                👁️ Đang xem toàn cảnh
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Tùy chỉnh Bố cục & Chế độ */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-          {/* Bố cục số lượng vé */}
-          <div className="flex flex-col gap-1.5 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
-            <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1">
-              <span>📐</span> Bố cục vé trên màn hình dọc 9:16:
-            </span>
-            <div className="grid grid-cols-4 gap-1.5">
-              {[
-                { id: '1-ticket', label: '1 Vé', desc: 'Spotlight' },
-                { id: '2-tickets', label: '2 Vé', desc: 'To Rõ Nhất' },
-                { id: '4-tickets', label: '4 Vé', desc: 'Chuẩn 2x2' },
-                { id: '6-tickets', label: '6 Vé', desc: 'Nhiều Người' },
-              ].map((opt) => (
-                <button
-                  key={opt.id}
-                  onClick={() =>
-                    lotoEngine.setScreenConfig({
-                      layout: opt.id as any,
-                    })
-                  }
-                  className={`py-1.5 px-1 rounded-lg flex flex-col items-center justify-center border transition-all ${
-                    gameState.screenConfig?.layout === opt.id
-                      ? 'bg-amber-500 text-slate-950 border-amber-300 font-bold shadow-md scale-[1.02]'
-                      : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
-                  }`}
-                >
-                  <span className="text-xs font-black">{opt.label}</span>
-                  <span className="text-[8.5px] opacity-80">{opt.desc}</span>
-                </button>
-              ))}
-            </div>
+        {/* Thông báo trạng thái chiếu vé & tùy chọn tự động */}
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-xs">
+          <div className="flex items-center gap-2 text-slate-300">
+            {gameState.showSpotlightTicket && gameState.spotlightTicketUser ? (
+              <span className="text-amber-300 font-bold flex items-center gap-1.5 animate-pulse">
+                <span>📺</span>
+                <span>
+                  Đang chiếu vé của: <strong className="text-white underline">{gameState.spotlightTicketUser}</strong> trên màn hình Live!
+                </span>
+              </span>
+            ) : (
+              <span className="text-slate-400 flex items-center gap-1.5">
+                <span>💡</span>
+                <span>Bấm vào bất kỳ nhân vật nào đang ngồi trên ghế (hoặc nút [Chiếu vé] bên dưới) để mở vé của họ lên Live.</span>
+              </span>
+            )}
           </div>
 
-          {/* Chế độ hiển thị & Xoay vòng */}
-          <div className="flex flex-col gap-1.5 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
-            <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1">
-              <span>⚙️</span> Cơ chế ưu tiên hiển thị:
-            </span>
-            <div className="grid grid-cols-3 gap-1.5">
-              {[
-                { id: 'priority_waiting', label: '🔥 Sắp KINH', desc: 'Ưu tiên vé 4/5' },
-                { id: 'auto_cycle', label: '🔄 Xoay vòng', desc: 'Mỗi 8s đổi trang' },
-                { id: 'pinned', label: '📌 Ghim', desc: 'Chỉ vé đã ghim' },
-              ].map((opt) => (
-                <button
-                  key={opt.id}
-                  onClick={() =>
-                    lotoEngine.setScreenConfig({
-                      mode: opt.id as any,
-                    })
-                  }
-                  className={`py-1.5 px-1 rounded-lg flex flex-col items-center justify-center border transition-all ${
-                    gameState.screenConfig?.mode === opt.id
-                      ? 'bg-amber-500 text-slate-950 border-amber-300 font-bold shadow-md scale-[1.02]'
-                      : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
-                  }`}
-                >
-                  <span className="text-xs font-black">{opt.label}</span>
-                  <span className="text-[8.5px] opacity-80">{opt.desc}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+          <label className="flex items-center gap-1.5 cursor-pointer select-none text-[11px] text-amber-200">
+            <input
+              type="checkbox"
+              checked={gameState.autoShowOnWaitingKin}
+              onChange={(e) => lotoEngine.setAutoShowOnWaitingKin(e.target.checked)}
+              className="w-3.5 h-3.5 accent-amber-500 rounded"
+            />
+            <span>Tự động chiếu vé khi có người Sắp KINH (4/5 số)</span>
+          </label>
         </div>
 
         {/* Form cấp vé nhanh cho người xem */}
@@ -414,7 +376,7 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
               className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:brightness-110 text-white font-bold text-xs shadow active:scale-95 transition-all whitespace-nowrap flex items-center gap-1"
             >
               <span>+</span>
-              <span>Cấp vé lên màn hình</span>
+              <span>Cấp vé cho khán giả</span>
             </button>
           </div>
 
@@ -440,35 +402,37 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
         {tickets.length > 0 && (
           <div className="flex flex-col gap-1.5 mt-1">
             <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
-              <span>Danh sách vé người chơi đang dò ({tickets.length} vé):</span>
-              <span className="text-[10px] text-amber-400 italic">Bấm 📌 để ghim vé lên màn hình</span>
+              <span>Danh sách vé người chơi đang ngồi trong khán phòng ({tickets.length} vé):</span>
+              <span className="text-[10px] text-amber-400 italic">Bấm 👁️ để chiếu vé của họ lên màn hình Live</span>
             </div>
 
-            <div className="max-h-40 overflow-y-auto flex flex-col gap-1 pr-1">
+            <div className="max-h-48 overflow-y-auto flex flex-col gap-1 pr-1">
               {tickets.map((t, idx) => {
-                const isPinned = gameState.screenConfig?.pinnedUsernames.includes(t.username.toLowerCase());
+                const isSpotlight =
+                  gameState.showSpotlightTicket &&
+                  gameState.spotlightTicketUser?.toLowerCase() === t.username.toLowerCase();
                 const isWaiting = t.waitingNumbers.length > 0 && !t.hasWon;
 
                 return (
                   <div
                     key={t.id}
-                    className={`flex items-center justify-between px-2.5 py-1 rounded-lg border text-xs transition-all ${
-                      t.hasWon
+                    className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs transition-all ${
+                      isSpotlight
+                        ? 'bg-amber-500/20 border-yellow-400 shadow-md ring-1 ring-yellow-400'
+                        : t.hasWon
                         ? 'bg-yellow-950/60 border-yellow-500 text-yellow-200'
                         : isWaiting
                         ? 'bg-red-950/50 border-red-500/70 text-red-200'
-                        : isPinned
-                        ? 'bg-amber-950/40 border-amber-500/50 text-amber-200'
                         : 'bg-slate-950/60 border-slate-800 text-slate-300'
                     }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="font-mono text-[10px] text-slate-500">#{idx + 1}</span>
-                      <div className="w-5 h-5 rounded-full overflow-hidden bg-slate-800 shrink-0 border border-slate-700">
+                      <div className="w-6 h-6 rounded-full overflow-hidden bg-slate-800 shrink-0 border border-slate-700">
                         {t.avatarUrl ? (
                           <img src={t.avatarUrl} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-[9px] font-bold text-amber-400">
+                          <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-amber-400">
                             {t.displayName.charAt(0)}
                           </div>
                         )}
@@ -488,32 +452,32 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
                       ) : null}
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         onClick={() =>
-                          isPinned
-                            ? lotoEngine.unpinTicket(t.username)
-                            : lotoEngine.pinTicket(t.username)
+                          isSpotlight
+                            ? lotoEngine.closeSpotlightTicket()
+                            : lotoEngine.setSpotlightTicket(t.username)
                         }
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all ${
-                          isPinned
-                            ? 'bg-amber-500 text-slate-950 border-yellow-300 shadow'
-                            : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-600'
+                        className={`px-2.5 py-1 rounded text-[11px] font-bold border transition-all active:scale-95 ${
+                          isSpotlight
+                            ? 'bg-yellow-400 text-slate-950 border-yellow-300 shadow font-black'
+                            : 'bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 border-amber-500/50'
                         }`}
-                        title={isPinned ? 'Bỏ ghim khỏi màn hình' : 'Ghim lên màn hình Live'}
+                        title={isSpotlight ? 'Đóng vé khỏi màn hình' : 'Chiếu vé này lên màn hình Live'}
                       >
-                        📌 {isPinned ? 'Đã ghim' : 'Ghim'}
+                        {isSpotlight ? '✕ Đang chiếu' : '👁️ Chiếu vé'}
                       </button>
                       <button
                         onClick={() => lotoEngine.rerollTicket(t.username)}
-                        className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] border border-slate-700"
+                        className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] border border-slate-700"
                         title="Đổi bộ số mới cho vé này"
                       >
                         🎲 Đổi
                       </button>
                       <button
                         onClick={() => lotoEngine.removeTicket(t.username)}
-                        className="px-1.5 py-0.5 rounded bg-rose-950 hover:bg-rose-900 text-rose-300 text-[10px] border border-rose-800"
+                        className="px-2 py-1 rounded bg-rose-950 hover:bg-rose-900 text-rose-300 text-[10px] border border-rose-800"
                         title="Xóa vé"
                       >
                         ✕
