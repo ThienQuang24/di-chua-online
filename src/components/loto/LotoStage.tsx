@@ -3,6 +3,7 @@ import { LotoCage } from './LotoCage';
 import { LotoWinnerCelebration } from './LotoWinnerCelebration';
 import { LotoFairCrowd } from './LotoFairCrowd';
 import { LotoPlayerTicketModal } from './LotoPlayerTicketModal';
+import { LotoGiftPerksModal } from './LotoGiftPerksModal';
 import { lotoEngine, LotoState, LotoTicket } from '../../services/loto/lotoEngine';
 import { soundEngine, formatUsernameForTts } from '../../services/soundEngine';
 import { GiftNotificationBanner } from '../GiftNotificationBanner';
@@ -35,6 +36,7 @@ export const LotoStage: React.FC<LotoStageProps> = ({
   const [showTicket, setShowTicket] = useState(false);
   const [selectedTicketUser, setSelectedTicketUser] = useState<string | null>(null);
   const [showStageQr, setShowStageQr] = useState(false);
+  const [showGiftMenu, setShowGiftMenu] = useState(false);
   const [networkInfo, setNetworkInfo] = useState<{ ticketUrl: string } | null>(null);
 
   useEffect(() => {
@@ -250,75 +252,43 @@ export const LotoStage: React.FC<LotoStageProps> = ({
         />
       )}
 
-      {/* 6. KHU VỰC ĐÁY: THANH CHỌN VÉ NHANH & ĐIỀU HƯỚNG GỌN GÀNG */}
-      <div className="relative z-30 w-full max-w-[410px] mx-auto px-2 pb-2 flex flex-col gap-1.5">
-        {/* Hàng nút bấm xem vé các khán giả đang ngồi dò vé */}
-        {tickets.length > 0 && (
-          <div className="flex items-center gap-1 overflow-x-auto py-1 no-scrollbar px-1.5 bg-black/75 rounded-full border border-amber-500/40 backdrop-blur-md shadow-lg">
-            <span className="text-[8.5px] font-black text-amber-300 uppercase px-1.5 shrink-0 flex items-center gap-1">
-              <span>🎫</span>
-              <span>Dò vé:</span>
-            </span>
-            {tickets.map((t) => {
-              const isSelected = activeTicket?.username.toLowerCase() === t.username.toLowerCase();
-              const isWaiting = t.waitingNumbers.length > 0 && !t.hasWon;
+      {/* 6. BẢNG MENU QUÀ TẶNG HỘI CHỢ (KÍCH THÍCH MOI QUÀ DONATE) */}
+      {showGiftMenu && (
+        <LotoGiftPerksModal onClose={() => setShowGiftMenu(false)} />
+      )}
 
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => handleSelectUser(t.username)}
-                  className={`
-                    px-2.5 py-0.5 rounded-full text-[8.5px] font-bold flex items-center gap-1 shrink-0 transition-all active:scale-95
-                    ${
-                      isSelected && isTicketModalOpen
-                        ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black shadow-md border border-yellow-200 scale-105'
-                        : isWaiting
-                        ? 'bg-red-950 text-red-200 border border-red-500 animate-pulse'
-                        : 'bg-slate-900/90 text-slate-300 border border-slate-700 hover:border-slate-500 hover:text-white'
-                    }
-                  `}
-                >
-                  <span>{t.displayName}</span>
-                  <span className="font-mono text-[8px] opacity-80">
-                    ({t.markedCount}/15)
-                  </span>
-                  {isWaiting && <span>🔥</span>}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Các nút điều hướng đáy */}
-        <div className="flex items-center justify-between gap-1.5">
+      {/* 7. KHU VỰC ĐÁY: GỌN GÀNG, THOÁNG ĐÃNG, KHÔNG ĐÈ LÊN LOA (MATCH HÌNH NGƯỜI DÙNG CHỤP) */}
+      <div className="relative z-30 w-full px-3 pb-2.5 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {/* Nút quét QR cầm vé riêng trên điện thoại cá nhân */}
           <button
             onClick={() => setShowStageQr((prev) => !prev)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/85 border border-yellow-400/60 text-[8px] text-yellow-300 font-bold shadow-lg backdrop-blur-sm hover:brightness-110 active:scale-95 transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/85 border border-yellow-400/80 text-[9px] text-yellow-300 font-bold shadow-lg backdrop-blur-sm hover:brightness-110 active:scale-95 transition-all"
           >
             <span>📱</span>
             <span>{showStageQr ? '✕ Đóng QR' : 'Quét QR Cầm Vé'}</span>
           </button>
 
-          {activeTicket && (
-            <button
-              onClick={() => {
-                if (isTicketModalOpen) {
-                  handleCloseTicket();
-                } else {
-                  handleSelectUser(activeTicket.username);
-                }
-              }}
-              className="px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-bold text-[8px] shadow-lg flex items-center gap-1 transition-transform active:scale-95"
-            >
-              <span>🎫</span>
-              <span>
-                {isTicketModalOpen
-                  ? '✕ Đóng vé để ngắm khán phòng'
-                  : `Xem vé: ${activeTicket.displayName} (${activeTicket.markedCount}/15)`}
-              </span>
-            </button>
-          )}
+          {/* Nút mở Menu quà tặng kích thích donate */}
+          <button
+            onClick={() => setShowGiftMenu((prev) => !prev)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-red-600 via-rose-500 to-amber-500 border border-yellow-300 text-[9px] text-white font-black shadow-lg hover:brightness-110 active:scale-95 transition-all animate-pulse"
+          >
+            <span>🎁</span>
+            <span>{showGiftMenu ? '✕ Đóng' : 'Tặng Quà Nhận Vé'}</span>
+          </button>
         </div>
+
+        {/* Nút âm thanh góc phải tích hợp an toàn, không bao giờ bị đè */}
+        {onToggleBgm && (
+          <button
+            onClick={onToggleBgm}
+            title={isBgmPlaying ? 'Tắt nhạc' : 'Bật nhạc'}
+            className="w-8 h-8 rounded-full bg-slate-900/90 border border-amber-500/60 flex items-center justify-center text-xs text-amber-300 shadow-lg hover:scale-105 active:scale-95"
+          >
+            {isBgmPlaying ? '🎵' : '🔇'}
+          </button>
+        )}
       </div>
 
       {/* MODAL QR CODE XEM VÉ TRÊN ĐIỆN THOẠI TRÊN SÂN KHẤU LIVE */}
@@ -349,7 +319,7 @@ export const LotoStage: React.FC<LotoStageProps> = ({
               {networkInfo?.ticketUrl || window.location.origin + '/ve'}
             </span>
             <span className="text-[8px] text-slate-400 mt-0.5">
-              Mỗi khán giả sẽ nhận 1 tờ vé riêng, tự động dò số đồng bộ với live!
+              Khán giả mở điện thoại: <strong>chỉ hiển thị vé của riêng bạn</strong>, tự động dò số đồng bộ với live!
             </span>
           </div>
         </div>
@@ -364,19 +334,6 @@ export const LotoStage: React.FC<LotoStageProps> = ({
         onClose={handleCloseWinner}
         onNewRound={handleNewRound}
       />
-
-      {/* 9. NÚT ÂM THANH GÓC MÀN HÌNH */}
-      <div className="absolute bottom-2 right-2 z-30 flex items-center gap-1.5">
-        {onToggleBgm && (
-          <button
-            onClick={onToggleBgm}
-            title={isBgmPlaying ? 'Tắt nhạc' : 'Bật nhạc'}
-            className="w-7 h-7 rounded-full bg-slate-900/80 border border-amber-500/50 flex items-center justify-center text-[10px] text-amber-300 shadow hover:scale-105 active:scale-95"
-          >
-            {isBgmPlaying ? '🎵' : '🔇'}
-          </button>
-        )}
-      </div>
     </div>
   );
 };

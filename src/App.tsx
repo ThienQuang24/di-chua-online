@@ -369,6 +369,17 @@ function MainApp() {
         }
       }
 
+      if (currentTheme === 'loto') {
+        // Automatically issue or get ticket for the gifter!
+        lotoEngine.issueTicket(cleanUser, cleanUser, avatarUrl);
+        // Announce with AI voice to thank and hype the live room
+        soundEngine.speak(
+          `Cảm ơn đại gia ${formatUsernameForTts(cleanUser)} đã gửi tặng ${giftName}! Gánh hát đã cấp ngay vé may mắn cho bạn!`
+        );
+        // Spotlight the gifter's ticket on stage so everyone sees their new ticket!
+        lotoEngine.setSpotlightTicket(cleanUser);
+      }
+
       // Update Devotee Crowd (in Lô Tô and Quán Nhậu, gift donors enter immediately as VIP)
       addOrUpdateDevotee(
         cleanUser,
@@ -414,6 +425,10 @@ function MainApp() {
     },
     [currentGift, config.autoTts]
   );
+
+  const handleTriggerLotoGift = (username: string, giftName: string, count = 1) => {
+    handleTriggerGift('dang_hoa_sen', giftName, 'Ủng hộ gánh Lô Tô', username, 1, count, '');
+  };
 
   // Add Comment & Handle "adidaphat" Entry
   const handleAddComment = (username: string, commentText: string, avatarUrl = '') => {
@@ -947,6 +962,7 @@ function MainApp() {
                   onAddDevotee={(name, avatar) =>
                     addOrUpdateDevotee(name, (d) => ({ avatarUrl: avatar || d?.avatarUrl }), true)
                   }
+                  onTriggerGift={handleTriggerLotoGift}
                 />
               )}
               {currentTheme === 'nhau' && (
@@ -1020,6 +1036,7 @@ function MainApp() {
                 onAddDevotee={(name, avatar) =>
                   addOrUpdateDevotee(name, (d) => ({ avatarUrl: avatar || d?.avatarUrl }), true)
                 }
+                onTriggerGift={handleTriggerLotoGift}
               />
             )}
             {currentTheme === 'nhau' && (

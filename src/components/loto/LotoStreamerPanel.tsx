@@ -5,9 +5,10 @@ import { soundEngine } from '../../services/soundEngine';
 
 interface LotoStreamerPanelProps {
   onAddDevotee?: (name: string, avatarUrl: string) => void;
+  onTriggerGift?: (username: string, giftName: string, count?: number) => void;
 }
 
-export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevotee }) => {
+export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevotee, onTriggerGift }) => {
   const [gameState, setGameState] = useState<LotoState>(lotoEngine.getState());
   const [tickets, setTickets] = useState<LotoTicket[]>(lotoEngine.getTickets());
   const [customSpeak, setCustomSpeak] = useState('');
@@ -230,6 +231,36 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
     const winner = lotoEngine.simulateWin();
     onAddDevotee?.(winner.username, winner.avatarUrl);
   };
+
+  const [simulatedGifterName, setSimulatedGifterName] = useState<string>('');
+
+  const handleSimulateGift = (giftName: string, coins: number) => {
+    const fakeNames = ['Đại Gia Phúc', 'Thúy Kiều', 'Văn Hậu', 'Trâm Anh', 'Tuấn Ken', 'Bảo Ngọc', 'Hoàng Nam'];
+    const name = simulatedGifterName.trim() || fakeNames[Math.floor(Math.random() * fakeNames.length)];
+    if (onTriggerGift) {
+      onTriggerGift(name, giftName, coins);
+    } else {
+      lotoEngine.issueTicket(name, name, '');
+      soundEngine.speak(`Cảm ơn đại gia ${name} đã gửi tặng ${giftName}! Gánh hát đã cấp ngay vé may mắn cho bạn!`);
+      lotoEngine.setSpotlightTicket(name);
+      onAddDevotee?.(name, '');
+    }
+  };
+
+  const MC_PROMPTS = [
+    {
+      label: '🌹 Kêu gọi tặng hoa nhận vé',
+      text: 'Gia đình mình ơi, ai chưa có vé thì bấm gửi 1 bông hoa hồng, gánh hát cấp vé may mắn liền tay để dò trúng quà to nha!',
+    },
+    {
+      label: '🍦 Nâng cấp vé VIP Vàng',
+      text: 'Đại gia nào tặng cây kem hoặc vương miện em cho ngồi hàng ghế đầu VIP máy lạnh, nâng cấp vé Vàng may mắn dễ nổ Kinh nha cả nhà!',
+    },
+    {
+      label: '🚀 Quyền chỉ định số tiếp theo',
+      text: 'Tên lửa xuất hiện là gánh hát cho đại gia chỉ định luôn con số tiếp theo quay trong lồng cầu nha quý vị!',
+    },
+  ];
 
   const handleSpeak = () => {
     if (customSpeak.trim()) {
@@ -988,6 +1019,100 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
           <span>👑</span>
           <span>⚡ Test nổ KINH!</span>
         </button>
+      </div>
+
+      {/* 4.5. KHU VỰC THỬ NGHIỆM MOI QUÀ TIKTOK LIVE & KỊCH BẢN MC */}
+      <div className="flex flex-col gap-2.5 bg-gradient-to-r from-red-950/40 via-purple-950/30 to-amber-950/40 p-3 rounded-xl border border-red-500/40">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm">🎁</span>
+            <span className="text-xs font-bold text-yellow-300 uppercase tracking-wide">
+              Thử Nghiệm Tặng Quà TikTok Live ("Moi Quà" Khán Giả)
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <input
+              type="text"
+              value={simulatedGifterName}
+              onChange={(e) => setSimulatedGifterName(e.target.value)}
+              placeholder="Tên người tặng (bỏ trống = random)..."
+              className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-700 text-[11px] text-slate-200 placeholder:text-slate-500 w-44 focus:outline-none focus:border-yellow-400"
+            />
+          </div>
+        </div>
+
+        {/* 4 Nút Tặng Quà Theo Tier */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <button
+            onClick={() => handleSimulateGift('Hoa Hồng', 1)}
+            className="p-2 rounded-xl bg-gradient-to-r from-rose-900/60 to-red-800/60 hover:from-rose-800 hover:to-red-700 border border-rose-500/60 flex flex-col items-center gap-0.5 shadow transition-all active:scale-95"
+            title="Tặng 1 hoa hồng (1 xu) - cấp vé thường"
+          >
+            <div className="flex items-center gap-1">
+              <span className="text-base">🌹</span>
+              <span className="text-[11px] font-black text-rose-200">Hoa Hồng (1 xu)</span>
+            </div>
+            <span className="text-[9px] text-rose-300/80">Cấp vé thường + cảm ơn</span>
+          </button>
+
+          <button
+            onClick={() => handleSimulateGift('Cây Kem', 10)}
+            className="p-2 rounded-xl bg-gradient-to-r from-amber-900/60 to-yellow-800/60 hover:from-amber-800 hover:to-yellow-700 border border-yellow-500/60 flex flex-col items-center gap-0.5 shadow transition-all active:scale-95"
+            title="Tặng cây kem (10 xu) - nâng vé VIP Vàng"
+          >
+            <div className="flex items-center gap-1">
+              <span className="text-base">🍦</span>
+              <span className="text-[11px] font-black text-amber-200">Cây Kem (10 xu)</span>
+            </div>
+            <span className="text-[9px] text-amber-300/80">Vé VIP Viền Vàng May Mắn</span>
+          </button>
+
+          <button
+            onClick={() => handleSimulateGift('Vương Miện', 99)}
+            className="p-2 rounded-xl bg-gradient-to-r from-purple-900/60 to-pink-800/60 hover:from-purple-800 hover:to-pink-700 border border-purple-500/60 flex flex-col items-center gap-0.5 shadow transition-all active:scale-95"
+            title="Tặng vương miện (99 xu) - 2 vé + ghế đầu VIP + MC hô tên"
+          >
+            <div className="flex items-center gap-1">
+              <span className="text-base">👑</span>
+              <span className="text-[11px] font-black text-purple-200">Vương Miện (99 xu)</span>
+            </div>
+            <span className="text-[9px] text-purple-300/80">2 Vé + Ghế đầu VIP + MC khen</span>
+          </button>
+
+          <button
+            onClick={() => handleSimulateGift('Tên Lửa', 1000)}
+            className="p-2 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:brightness-110 border border-yellow-300 flex flex-col items-center gap-0.5 shadow-lg transition-all active:scale-95 animate-pulse"
+            title="Tặng tên lửa (1000 xu) - pháo hoa rực rỡ + chọn số tiếp theo"
+          >
+            <div className="flex items-center gap-1">
+              <span className="text-base">🚀</span>
+              <span className="text-[11px] font-black text-white">Tên Lửa (1000 xu)</span>
+            </div>
+            <span className="text-[9px] text-yellow-200 font-bold">Pháo hoa + Chọn số quay</span>
+          </button>
+        </div>
+
+        {/* Kịch bản MC Hô Hào Moi Quà Nhanh */}
+        <div className="pt-2 border-t border-red-500/30 flex flex-col gap-1.5">
+          <span className="text-[10px] font-bold text-amber-300 flex items-center gap-1">
+            <span>📢</span>
+            <span>Kịch Bản AI MC Hô Hào Moi Quà (Bấm là AI MC cất giọng đọc ngay trên Live):</span>
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {MC_PROMPTS.map((prompt, idx) => (
+              <button
+                key={idx}
+                onClick={() => soundEngine.speak(prompt.text)}
+                className="px-2.5 py-1 rounded-lg bg-slate-900/90 hover:bg-amber-950/80 border border-amber-500/40 text-[10px] text-amber-200 font-medium flex items-center gap-1 active:scale-95 transition-all text-left"
+                title={prompt.text}
+              >
+                <span>🔊</span>
+                <span>{prompt.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* 5. ĐỌC CÂU BẤT KỲ TRÊN LIVE */}
