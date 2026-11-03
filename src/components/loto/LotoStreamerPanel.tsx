@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { lotoEngine, LotoState, LotoTicket } from '../../services/loto/lotoEngine';
+import { lotoEngine, LotoState, LotoTicket, LotoDanceStyle } from '../../services/loto/lotoEngine';
 import { getLotoChant } from '../../services/loto/lotoVerses';
 import { soundEngine } from '../../services/soundEngine';
 
@@ -298,7 +298,7 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
   };
 
   const handleTriggerDance = (
-    style: 'fan' | 'hipshake' | 'disco' | 'robot' | 'troupe' | 'baga' | 'vica' | 'anime' | 'stickmin',
+    style: LotoDanceStyle,
     overrideVideoUrl?: string,
     overrideIsGreen?: boolean
   ) => {
@@ -309,7 +309,7 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
 
     lotoEngine.triggerDance(
       style,
-      30000,
+      60000,
       'Streamer',
       'Vũ Điệu Biểu Diễn',
       vUrl || undefined,
@@ -322,7 +322,7 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
         action: 'loto_dance',
         text: style,
         danceStyle: style,
-        danceDuration: 30000,
+        danceDuration: 60000,
         danceDonorName: 'Streamer',
         danceGiftName: 'Vũ Điệu Biểu Diễn',
         customVideoUrl: vUrl || undefined,
@@ -1294,132 +1294,104 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
           )}
         </div>
 
-        {/* Nút Chọn Kiểu Nhảy Trực Tiếp (Hoạt Hình Thật + Mô Hình 3D Skeletal 60fps) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-          {/* 1. ANIME CHIKA DANCE */}
+        {/* Nút Chọn Kiểu Nhảy Trực Tiếp (100% Video Hoạt Hình & Vũ Công Chuyển Động Thật) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2">
+          {/* 1. ANIME CHIKA DANCE - VIDEO 1 GỐC GIỮ NGUYÊN THEO YÊU CẦU */}
           <button
             onClick={() => handleTriggerDance('anime', '/assets/loto/dancers/dance-anime.webm', false)}
-            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
+            className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
               gameState.danceStyle === 'anime'
                 ? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white border-pink-200 scale-105 shadow-[0_0_20px_rgba(244,63,94,0.8)] ring-2 ring-pink-400'
                 : 'bg-pink-950/40 border-pink-500/50 text-pink-200 hover:bg-pink-900/50'
             }`}
           >
-            <span className="text-xl animate-bounce">🎀</span>
-            <span className="text-[10px] font-black">Anime Chika (Nhảy Thật)</span>
-            <span className="text-[8px] text-pink-200 font-bold">✨ Hoạt hình uốn lượn</span>
+            <span className="text-2xl animate-bounce">🎀</span>
+            <span className="text-[10px] font-black text-center">1. Anime Chika (Vẫy Tay)</span>
+            <span className="text-[8px] text-pink-200 font-bold text-center">⭐ Video 1 Gốc (Giữ Nguyên)</span>
           </button>
 
-          {/* 2. STICKMAN DANCE */}
+          {/* 2. ANIME CHIKA XOAY VÒNG BƯỚC NHẢY */}
           <button
-            onClick={() => handleTriggerDance('stickmin', '/assets/loto/dancers/dance-stickmin.webm', false)}
-            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
-              gameState.danceStyle === 'stickmin'
-                ? 'bg-gradient-to-r from-cyan-500 to-emerald-400 text-slate-950 border-cyan-200 scale-105 shadow-[0_0_20px_rgba(6,182,212,0.8)] ring-2 ring-cyan-400'
-                : 'bg-cyan-950/40 border-cyan-500/50 text-cyan-200 hover:bg-cyan-900/50'
+            onClick={() => handleTriggerDance('chika_spin', '/assets/loto/dancers/dance-chika-spin.webm', false)}
+            className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
+              gameState.danceStyle === 'chika_spin'
+                ? 'bg-gradient-to-r from-rose-500 to-pink-400 text-white border-rose-200 scale-105 shadow-[0_0_20px_rgba(244,63,94,0.8)] ring-2 ring-rose-400'
+                : 'bg-rose-950/40 border-rose-500/50 text-rose-200 hover:bg-rose-900/50'
             }`}
           >
-            <span className="text-xl animate-bounce">🕺</span>
-            <span className="text-[10px] font-black">Stickman Quẩy Sung</span>
-            <span className="text-[8px] text-cyan-200 font-bold">🔥 Bung nóc hội trường</span>
+            <span className="text-2xl animate-bounce">🌸</span>
+            <span className="text-[10px] font-black text-center">2. Anime Chika (Xoay Vòng)</span>
+            <span className="text-[8px] text-rose-200 font-bold text-center">✨ Nhún nhảy xoay váy</span>
           </button>
 
-          {/* 3. ROBOT 3D SKELETAL */}
+          {/* 3. ANIME WAIFU ALICE HAPPY HANDS 4K */}
           <button
-            onClick={() => handleTriggerDance('robot', '', false)}
-            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
-              gameState.danceStyle === 'robot'
+            onClick={() => handleTriggerDance('alice', '/assets/loto/dancers/dance-alice.webm', false)}
+            className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
+              gameState.danceStyle === 'alice'
+                ? 'bg-gradient-to-r from-fuchsia-500 to-pink-400 text-white border-fuchsia-200 scale-105 shadow-[0_0_20px_rgba(217,70,239,0.8)] ring-2 ring-fuchsia-400'
+                : 'bg-fuchsia-950/40 border-fuchsia-500/50 text-fuchsia-200 hover:bg-fuchsia-900/50'
+            }`}
+          >
+            <span className="text-2xl animate-bounce">🐰</span>
+            <span className="text-[10px] font-black text-center">3. Anime Alice (Happy Hands)</span>
+            <span className="text-[8px] text-fuchsia-200 font-bold text-center">✨ 4K Waifu tai thỏ</span>
+          </button>
+
+          {/* 4. ANIME WAIFU RAIKOU QUẨY KIẾM MMD */}
+          <button
+            onClick={() => handleTriggerDance('waifu_mmd', '/assets/loto/dancers/dance-waifu-mmd.webm', false)}
+            className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
+              gameState.danceStyle === 'waifu_mmd'
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-500 text-white border-purple-200 scale-105 shadow-[0_0_20px_rgba(168,85,247,0.8)] ring-2 ring-purple-400'
+                : 'bg-purple-950/40 border-purple-500/50 text-purple-200 hover:bg-purple-900/50'
+            }`}
+          >
+            <span className="text-2xl animate-bounce">⚔️</span>
+            <span className="text-[10px] font-black text-center">4. Anime Waifu Raikou</span>
+            <span className="text-[8px] text-purple-200 font-bold text-center">✨ Quẩy kiếm 3D MMD</span>
+          </button>
+
+          {/* 5. MÈO TIKTOK MEME ĐỨNG 2 CHÂN */}
+          <button
+            onClick={() => handleTriggerDance('cat_meme', '/assets/loto/dancers/dance-cat-meme.webm', false)}
+            className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
+              gameState.danceStyle === 'cat_meme'
+                ? 'bg-gradient-to-r from-amber-500 to-orange-400 text-slate-950 border-amber-200 scale-105 shadow-[0_0_20px_rgba(245,158,11,0.8)] ring-2 ring-amber-400'
+                : 'bg-amber-950/40 border-amber-500/50 text-amber-200 hover:bg-amber-900/50'
+            }`}
+          >
+            <span className="text-2xl animate-bounce">🐱</span>
+            <span className="text-[10px] font-black text-center">5. Mèo Nhảy TikTok</span>
+            <span className="text-[8px] text-amber-200 font-bold text-center">🔥 Siêu Phẩm Meme 2 chân</span>
+          </button>
+
+          {/* 6. ANIME WAIFU ALTERA LẮC HÔNG */}
+          <button
+            onClick={() => handleTriggerDance('altera', '/assets/loto/dancers/dance-altera.webm', false)}
+            className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
+              gameState.danceStyle === 'altera'
                 ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 border-emerald-200 scale-105 shadow-[0_0_20px_rgba(16,185,129,0.8)] ring-2 ring-emerald-400'
-                : 'bg-emerald-950/50 border-emerald-400/60 text-emerald-300 hover:bg-emerald-900/60'
+                : 'bg-emerald-950/40 border-emerald-500/50 text-emerald-200 hover:bg-emerald-900/50'
             }`}
           >
-            <span className="text-xl animate-bounce">🤖</span>
-            <span className="text-[10px] font-black">Robot 3D Nhảy Thật</span>
-            <span className="text-[8px] text-emerald-200 font-bold">⭐ Xoay khớp xương 60fps</span>
+            <span className="text-2xl animate-bounce">💃</span>
+            <span className="text-[10px] font-black text-center">6. Anime Waifu Altera</span>
+            <span className="text-[8px] text-emerald-200 font-bold text-center">🔥 Lắc hông Good Civ</span>
           </button>
 
-          {/* 4. BÀ GÀ 3D */}
-          <button
-            onClick={() => handleTriggerDance('baga', '', false)}
-            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
-              gameState.danceStyle === 'baga'
-                ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white border-orange-200 scale-105 shadow-[0_0_20px_rgba(249,115,22,0.8)] ring-2 ring-orange-400'
-                : 'bg-orange-950/50 border-orange-400/60 text-orange-300 hover:bg-orange-900/60'
-            }`}
-          >
-            <span className="text-xl">🐔</span>
-            <span className="text-[10px] font-black">Thầy Ba Gà 3D</span>
-            <span className="text-[8px] text-orange-200 font-bold">⭐ Quẩy & Vẫy Tay 3D</span>
-          </button>
-
-          {/* 5. VI CÁ 3D */}
-          <button
-            onClick={() => handleTriggerDance('vica', '', false)}
-            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
-              gameState.danceStyle === 'vica'
-                ? 'bg-gradient-to-r from-blue-600 to-indigo-500 text-white border-blue-200 scale-105 shadow-[0_0_20px_rgba(59,130,246,0.8)] ring-2 ring-blue-400'
-                : 'bg-blue-950/50 border-blue-400/60 text-blue-300 hover:bg-blue-900/60'
-            }`}
-          >
-            <span className="text-xl">🕶️</span>
-            <span className="text-[10px] font-black">Anh Vi Cá 3D</span>
-            <span className="text-[8px] text-blue-200 font-bold">⭐ Vẫy Tay Chào Khán Giả</span>
-          </button>
-
-          {/* 6. MÚA QUẠT */}
-          <button
-            onClick={() => handleTriggerDance('fan')}
-            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
-              gameState.danceStyle === 'fan'
-                ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 border-yellow-200 scale-105 shadow-[0_0_15px_rgba(245,158,11,0.6)]'
-                : 'bg-slate-950/70 border-amber-500/40 text-amber-200 hover:border-yellow-400'
-            }`}
-          >
-            <span className="text-xl">🪭</span>
-            <span className="text-[10px] font-black">Múa Quạt TikTok</span>
-            <span className="text-[8px] opacity-80">Vũ điệu cuốn hút</span>
-          </button>
-
-          {/* 7. LẮC HÔNG */}
-          <button
-            onClick={() => handleTriggerDance('hipshake')}
-            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
-              gameState.danceStyle === 'hipshake'
-                ? 'bg-gradient-to-r from-pink-600 to-rose-500 text-white border-pink-200 scale-105 shadow-[0_0_15px_rgba(244,63,94,0.6)]'
-                : 'bg-slate-950/70 border-pink-500/40 text-pink-200 hover:border-pink-400'
-            }`}
-          >
-            <span className="text-xl">💃</span>
-            <span className="text-[10px] font-black">Lắc Hông Bốc Lửa</span>
-            <span className="text-[8px] opacity-80">Cháy cả phòng</span>
-          </button>
-
-          {/* 8. DISCO */}
-          <button
-            onClick={() => handleTriggerDance('disco')}
-            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
-              gameState.danceStyle === 'disco'
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white border-cyan-200 scale-105 shadow-[0_0_15px_rgba(6,182,212,0.6)]'
-                : 'bg-slate-950/70 border-cyan-500/40 text-cyan-200 hover:border-cyan-400'
-            }`}
-          >
-            <span className="text-xl">🕺</span>
-            <span className="text-[10px] font-black">Disco Vinahouse</span>
-            <span className="text-[8px] opacity-80">Chỉ tay lên nóc</span>
-          </button>
-
-          {/* 9. VŨ ĐOÀN ĐỒNG DIỄN */}
+          {/* 7. SONG CA ĐỒNG DIỄN (CHIKA & ALICE) */}
           <button
             onClick={() => handleTriggerDance('troupe')}
-            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 col-span-2 sm:col-span-1 md:col-span-2 ${
+            className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
               gameState.danceStyle === 'troupe'
-                ? 'bg-gradient-to-r from-red-600 to-yellow-500 text-white border-yellow-200 scale-105 shadow-[0_0_15px_rgba(239,68,68,0.8)]'
-                : 'bg-slate-950/70 border-red-500/40 text-amber-200 hover:border-yellow-400'
+                ? 'bg-gradient-to-r from-yellow-400 via-pink-500 to-rose-500 text-white border-yellow-200 scale-105 shadow-[0_0_20px_rgba(234,179,8,0.8)] ring-2 ring-yellow-400'
+                : 'bg-yellow-950/40 border-yellow-500/50 text-yellow-200 hover:bg-yellow-900/50'
             }`}
           >
-            <span className="text-xl">👯‍♀️</span>
-            <span className="text-[10px] font-black">Vũ Đoàn Đồng Diễn Song Ca</span>
-            <span className="text-[8px] opacity-80">2 Vũ công chuyển động thật 2 bên sân khấu</span>
+            <span className="text-2xl animate-bounce">👯‍♀️</span>
+            <span className="text-[10px] font-black text-center">7. Song Ca Waifu</span>
+            <span className="text-[8px] text-yellow-200 font-bold text-center">👑 Chika & Alice đồng diễn</span>
           </button>
         </div>
 
@@ -1427,9 +1399,9 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
         <div className="pt-2 border-t border-purple-500/30 flex flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
-              <span>🎬 Nguồn Video Vũ Điệu:</span>
-              <span className="text-[9px] text-slate-300 font-normal">
-                {danceVideoUrl ? 'Đang bật chế độ Video Chuyển Động Thật' : 'Chế độ mô hình 3D tĩnh'}
+              <span>🎬 Nguồn Video Vũ Điệu (WebM Alpha / MP4 Canvas Key):</span>
+              <span className="text-[9px] text-emerald-400 font-normal">
+                {danceVideoUrl ? 'Đang chiếu video vũ công trong suốt' : 'Tự động theo điệu nhảy'}
               </span>
             </span>
 
@@ -1452,40 +1424,73 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
                   : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-pink-400'
               }`}
             >
-              🎀 Video Hoạt Hình Anime (WebM Trong Suốt)
+              🎀 1. Chika Vẫy Tay (Gốc)
             </button>
 
             <button
-              onClick={() => handleTriggerDance('stickmin', '/assets/loto/dancers/dance-stickmin.webm', false)}
+              onClick={() => handleTriggerDance('chika_spin', '/assets/loto/dancers/dance-chika-spin.webm', false)}
               className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                danceVideoUrl === '/assets/loto/dancers/dance-stickmin.webm' && gameState.danceStyle === 'stickmin'
-                  ? 'bg-cyan-500 text-slate-950 border-cyan-300 shadow scale-105'
-                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-cyan-400'
+                danceVideoUrl === '/assets/loto/dancers/dance-chika-spin.webm' && gameState.danceStyle === 'chika_spin'
+                  ? 'bg-rose-500 text-white border-rose-300 shadow scale-105'
+                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-rose-400'
               }`}
             >
-              🕺 Video Stickman (WebM Trong Suốt)
+              🌸 2. Chika Xoay Vòng
             </button>
 
             <button
-              onClick={() => handleTriggerDance('anime', '/assets/loto/dancers/dance-anime.mp4', true)}
+              onClick={() => handleTriggerDance('alice', '/assets/loto/dancers/dance-alice.webm', false)}
               className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                danceVideoUrl.endsWith('.mp4') && danceIsGreenScreen && gameState.danceStyle
+                danceVideoUrl === '/assets/loto/dancers/dance-alice.webm' && gameState.danceStyle === 'alice'
+                  ? 'bg-fuchsia-500 text-white border-fuchsia-300 shadow scale-105'
+                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-fuchsia-400'
+              }`}
+            >
+              🐰 3. Alice Happy Hands
+            </button>
+
+            <button
+              onClick={() => handleTriggerDance('waifu_mmd', '/assets/loto/dancers/dance-waifu-mmd.webm', false)}
+              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
+                danceVideoUrl === '/assets/loto/dancers/dance-waifu-mmd.webm' && gameState.danceStyle === 'waifu_mmd'
+                  ? 'bg-purple-600 text-white border-purple-300 shadow scale-105'
+                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-purple-400'
+              }`}
+            >
+              ⚔️ 4. Waifu Raikou MMD
+            </button>
+
+            <button
+              onClick={() => handleTriggerDance('cat_meme', '/assets/loto/dancers/dance-cat-meme.webm', false)}
+              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
+                danceVideoUrl === '/assets/loto/dancers/dance-cat-meme.webm' && gameState.danceStyle === 'cat_meme'
+                  ? 'bg-amber-500 text-slate-950 border-amber-300 shadow scale-105'
+                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-amber-400'
+              }`}
+            >
+              🐱 5. Mèo Nhảy TikTok
+            </button>
+
+            <button
+              onClick={() => handleTriggerDance('altera', '/assets/loto/dancers/dance-altera.webm', false)}
+              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
+                danceVideoUrl === '/assets/loto/dancers/dance-altera.webm' && gameState.danceStyle === 'altera'
                   ? 'bg-emerald-500 text-slate-950 border-emerald-300 shadow scale-105'
                   : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-emerald-400'
               }`}
             >
-              🟢 Video Phông Xanh (HTML5 Canvas Chroma Key)
+              💃 6. Waifu Altera Lắc Hông
             </button>
 
             <button
-              onClick={() => handleTriggerDance('robot', '', false)}
+              onClick={() => handleTriggerDance('troupe')}
               className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                gameState.danceStyle === 'robot'
-                  ? 'bg-emerald-500 text-slate-950 border-emerald-300 shadow scale-105'
-                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-emerald-400'
+                gameState.danceStyle === 'troupe'
+                  ? 'bg-yellow-500 text-slate-950 border-yellow-300 shadow scale-105'
+                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-yellow-400'
               }`}
             >
-              🤖 Mô hình Robot 3D (Three.js Armature)
+              👯‍♀️ 7. Song Ca Đồng Diễn
             </button>
           </div>
 

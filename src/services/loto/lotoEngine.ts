@@ -49,7 +49,12 @@ export type LotoDanceStyle =
   | 'baga'
   | 'vica'
   | 'anime'
-  | 'stickmin';
+  | 'stickmin'
+  | 'chika_spin'
+  | 'alice'
+  | 'waifu_mmd'
+  | 'altera'
+  | 'cat_meme';
 
 export interface LotoState {
   roundId: number;

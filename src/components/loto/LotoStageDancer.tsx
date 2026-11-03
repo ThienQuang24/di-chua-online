@@ -2,8 +2,9 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LotoChromaKeyVideo } from './LotoChromaKeyVideo';
 import { LotoThreeDancer } from './LotoThreeDancer';
+import type { LotoDanceStyle } from '../../services/loto/lotoEngine';
 
-export type LotoDanceStyle = 'fan' | 'hipshake' | 'disco' | 'robot' | 'troupe' | 'baga';
+export type { LotoDanceStyle };
 
 interface LotoStageDancerProps {
   danceStyle: LotoDanceStyle | null;
@@ -32,91 +33,148 @@ const DANCE_CONFIGS: Record<
     glowColor: string;
   }
 > = {
+  // 1. VIDEO 1 GỐC - ANIME CHIKA DANCE (GIỮ NGUYÊN THEO YÊU CẦU NGƯỜI DÙNG)
   anime: {
-    title: 'Vũ Điệu Hoạt Hình Anime (Chika Dance)',
+    title: 'Anime Chika (Vẫy Tay Lắc Hông)',
     icon: '🎀',
     animClass: 'animate-dance-hipshake',
     model1: '/assets/loto/dancers/dancer-female-flair.png',
     video1: '/assets/loto/dancers/dance-anime.webm',
-    tagline: 'Nhân vật hoạt hình nhảy múa, vẫy tay uốn lượn cực đáng yêu!',
+    tagline: 'Chika vẫy tay uốn lượn, lắc hông nhảy múa cực điêu luyện!',
     glowColor: 'from-pink-500 via-rose-400 to-purple-500',
   },
-  stickmin: {
-    title: 'Vũ Điệu Stickman Quẩy Đảo Lửa',
-    icon: '🕺',
+
+  // 2. VIDEO MỚI 2 - ANIME CHIKA XOAY VÒNG BƯỚC NHẢY
+  chika_spin: {
+    title: 'Anime Chika (Xoay Vòng Nhún Nhảy)',
+    icon: '🌸',
     animClass: 'animate-dance-disco',
-    model1: '/assets/loto/dancers/dancer-hiphop.png',
-    video1: '/assets/loto/dancers/dance-stickmin.webm',
-    tagline: 'Stickman nhảy tưng bừng đảo lửa bung nóc hội trường!',
-    glowColor: 'from-cyan-400 via-emerald-400 to-yellow-400',
+    model1: '/assets/loto/dancers/dancer-female-flair.png',
+    video1: '/assets/loto/dancers/dance-chika-spin.webm',
+    tagline: 'Chika xoay váy nhún nhảy cực dễ thương theo nhịp beat!',
+    glowColor: 'from-rose-400 via-pink-400 to-amber-300',
   },
-  fan: {
-    title: 'Vũ Điệu Múa Quạt TikTok',
-    icon: '🪭',
+
+  // 3. VIDEO MỚI 3 - ANIME WAIFU ALICE HAPPY HANDS 4K
+  alice: {
+    title: 'Anime Alice (Vũ Điệu Happy Hands)',
+    icon: '🐰',
     animClass: 'animate-dance-fan',
-    model1: '/assets/loto/dancers/dancer-fan.png',
-    video1: '/assets/loto/dancers/dance-anime.webm',
-    tagline: 'Múa dẻo quẹo theo nhịp beat cực sung cùng idol!',
-    glowColor: 'from-amber-400 via-rose-500 to-yellow-300',
+    model1: '/assets/loto/dancers/dancer-female-flair.png',
+    video1: '/assets/loto/dancers/dance-alice.webm',
+    tagline: 'Waifu Alice tai thỏ nhảy điệu Happy Hands siêu hot!',
+    glowColor: 'from-pink-400 via-fuchsia-500 to-rose-300',
   },
-  hipshake: {
-    title: 'Vũ Điệu Lắc Hông Bốc Lửa',
+
+  // 4. VIDEO MỚI 4 - ANIME WAIFU RAIKOU QUẨY KIẾM MMD
+  waifu_mmd: {
+    title: 'Anime Waifu Raikou (Quẩy Kiếm MMD)',
+    icon: '⚔️',
+    animClass: 'animate-dance-disco',
+    model1: '/assets/loto/dancers/dancer-disco.png',
+    video1: '/assets/loto/dancers/dance-waifu-mmd.webm',
+    tagline: 'Waifu quý phái mang kiếm nhảy điệu 3D MMD điêu nghệ!',
+    glowColor: 'from-purple-500 via-indigo-400 to-pink-500',
+  },
+
+  // 5. VIDEO MỚI 5 - CHÚ MÈO TIKTOK 2 CHÂN SIÊU MEME
+  cat_meme: {
+    title: 'Chú Mèo TikTok (Meme Đứng 2 Chân)',
+    icon: '🐱',
+    animClass: 'animate-dance-robot',
+    model1: '/assets/loto/dancers/dancer-fan.png',
+    video1: '/assets/loto/dancers/dance-cat-meme.webm',
+    tagline: 'Chú mèo đứng 2 chân uốn éo lắc lư làm khán trường cười nghiêng ngả!',
+    glowColor: 'from-amber-400 via-orange-500 to-yellow-300',
+  },
+
+  // 6. VIDEO MỚI 6 - ANIME WAIFU ALTERA LẮC HÔNG BỐC LỬA
+  altera: {
+    title: 'Anime Waifu Altera (Lắc Hông Bốc Lửa)',
     icon: '💃',
     animClass: 'animate-dance-hipshake',
     model1: '/assets/loto/dancers/dancer-female-flair.png',
-    video1: '/assets/loto/dancers/dance-anime.webm',
-    tagline: 'Lắc hông bốc lửa khuấy động cả khán phòng!',
-    glowColor: 'from-pink-500 via-purple-500 to-rose-400',
+    video1: '/assets/loto/dancers/dance-altera.webm',
+    tagline: 'Vũ điệu lắc hông Good Civilization bùng cháy sân khấu!',
+    glowColor: 'from-emerald-400 via-teal-400 to-yellow-400',
   },
-  disco: {
-    title: 'Vũ Điệu Disco Quẩy Vinahouse',
-    icon: '🕺',
-    animClass: 'animate-dance-disco',
-    model1: '/assets/loto/dancers/dancer-disco.png',
-    video1: '/assets/loto/dancers/dance-stickmin.webm',
-    tagline: 'Chỉ tay lên nóc nhà - Bắt trọn từng nhịp bass!',
-    glowColor: 'from-cyan-400 via-blue-500 to-purple-500',
-  },
-  robot: {
-    title: 'Vũ Điệu Robot 3D Nhảy Thật (Dance 60fps)',
-    icon: '🤖',
-    animClass: 'animate-dance-robot',
-    model1: '/assets/loto/dancers/dancer-hiphop.png',
-    model3d: '/assets/loto/dancers/robot-expressive.glb',
-    anim3d: 'Dance',
-    tagline: 'Robot 3D nhảy uốn lượn, tay chân cử động 100%!',
-    glowColor: 'from-emerald-400 via-teal-500 to-lime-400',
-  },
-  baga: {
-    title: 'Vũ Điệu Thầy Ba Gà 3D',
-    icon: '🐔',
-    animClass: 'animate-dance-disco',
-    model1: '/assets/nhau/patron-uncle-1.png',
-    model3d: '/assets/loto/dancers/ba-ga.glb',
-    anim3d: 'CharacterArmature|Interact',
-    tagline: 'Thầy Ba Gà 3D quẩy tưng bừng trên sân khấu!',
-    glowColor: 'from-amber-400 via-orange-500 to-red-500',
-  },
-  vica: {
-    title: 'Vũ Điệu Anh Vi Cá 3D',
-    icon: '🕶️',
-    animClass: 'animate-dance-disco',
-    model1: '/assets/nhau/patron-1.png',
-    model3d: '/assets/loto/dancers/vi-ca.glb',
-    anim3d: 'CharacterArmature|Wave',
-    tagline: 'Anh Vi Cá 3D chào khán giả và quẩy nhiệt tình!',
-    glowColor: 'from-blue-400 via-indigo-500 to-purple-500',
-  },
+
+  // 7. VŨ ĐOÀN ĐỒNG DIỄN SONG CA (CHIKA + ALICE)
   troupe: {
-    title: 'Vũ Đoàn Hội Chợ Đồng Diễn',
+    title: 'Song Ca Waifu (Chika & Alice Đồng Diễn)',
     icon: '👯‍♀️',
     animClass: 'animate-dance-fan',
     model1: '/assets/loto/dancers/dancer-female-flair.png',
     video1: '/assets/loto/dancers/dance-anime.webm',
-    model2: '/assets/loto/dancers/dancer-hiphop.png',
-    video2: '/assets/loto/dancers/dance-stickmin.webm',
-    tagline: 'Vũ đoàn đồng diễn 2 bên sân khấu tưng bừng hội chợ!',
-    glowColor: 'from-yellow-400 via-red-500 to-pink-500',
+    model2: '/assets/loto/dancers/dancer-female-flair.png',
+    video2: '/assets/loto/dancers/dance-alice.webm',
+    tagline: 'Cặp đôi Chika & Alice cùng quẩy tưng bừng 2 bên sân khấu!',
+    glowColor: 'from-yellow-400 via-pink-500 to-rose-500',
+  },
+
+  // CÁC MÃ ĐIỆU NHẢY TƯƠNG THÍCH CŨ (ĐỀU ĐƯỢC CHUYỂN SANG CÁC VIDEO THẬT MỚI TOANH)
+  fan: {
+    title: 'Anime Chika (Xoay Vòng Nhún Nhảy)',
+    icon: '🪭',
+    animClass: 'animate-dance-fan',
+    model1: '/assets/loto/dancers/dancer-fan.png',
+    video1: '/assets/loto/dancers/dance-chika-spin.webm',
+    tagline: 'Chika xoay váy nhún nhảy cực dễ thương theo nhịp beat!',
+    glowColor: 'from-amber-400 via-rose-500 to-yellow-300',
+  },
+  hipshake: {
+    title: 'Anime Waifu Altera (Lắc Hông Bốc Lửa)',
+    icon: '💃',
+    animClass: 'animate-dance-hipshake',
+    model1: '/assets/loto/dancers/dancer-female-flair.png',
+    video1: '/assets/loto/dancers/dance-altera.webm',
+    tagline: 'Lắc hông bốc lửa khuấy động cả khán phòng!',
+    glowColor: 'from-pink-500 via-purple-500 to-rose-400',
+  },
+  disco: {
+    title: 'Anime Alice (Vũ Điệu Happy Hands)',
+    icon: '🕺',
+    animClass: 'animate-dance-disco',
+    model1: '/assets/loto/dancers/dancer-disco.png',
+    video1: '/assets/loto/dancers/dance-alice.webm',
+    tagline: 'Waifu Alice tai thỏ nhảy điệu Happy Hands siêu hot!',
+    glowColor: 'from-cyan-400 via-blue-500 to-purple-500',
+  },
+  robot: {
+    title: 'Anime Waifu Raikou (Quẩy Kiếm MMD)',
+    icon: '⚔️',
+    animClass: 'animate-dance-robot',
+    model1: '/assets/loto/dancers/dancer-hiphop.png',
+    video1: '/assets/loto/dancers/dance-waifu-mmd.webm',
+    tagline: 'Waifu quý phái mang kiếm nhảy điệu 3D MMD điêu nghệ!',
+    glowColor: 'from-emerald-400 via-teal-500 to-lime-400',
+  },
+  baga: {
+    title: 'Chú Mèo TikTok (Meme Đứng 2 Chân)',
+    icon: '🐱',
+    animClass: 'animate-dance-disco',
+    model1: '/assets/nhau/patron-uncle-1.png',
+    video1: '/assets/loto/dancers/dance-cat-meme.webm',
+    tagline: 'Chú mèo đứng 2 chân uốn éo lắc lư làm khán trường cười nghiêng ngả!',
+    glowColor: 'from-amber-400 via-orange-500 to-red-500',
+  },
+  vica: {
+    title: 'Anime Waifu Raikou (Quẩy Kiếm MMD)',
+    icon: '⚔️',
+    animClass: 'animate-dance-disco',
+    model1: '/assets/nhau/patron-1.png',
+    video1: '/assets/loto/dancers/dance-waifu-mmd.webm',
+    tagline: 'Waifu quý phái mang kiếm nhảy điệu 3D MMD điêu nghệ!',
+    glowColor: 'from-blue-400 via-indigo-500 to-purple-500',
+  },
+  stickmin: {
+    title: 'Chú Mèo TikTok (Meme Đứng 2 Chân)',
+    icon: '🐱',
+    animClass: 'animate-dance-disco',
+    model1: '/assets/loto/dancers/dancer-hiphop.png',
+    video1: '/assets/loto/dancers/dance-cat-meme.webm',
+    tagline: 'Chú mèo đứng 2 chân uốn éo lắc lư!',
+    glowColor: 'from-cyan-400 via-emerald-400 to-yellow-400',
   },
 };
 
