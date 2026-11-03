@@ -300,6 +300,8 @@ export const LotoStage: React.FC<LotoStageProps> = ({
         danceStyle={gameState.danceStyle}
         donorName={gameState.danceDonorName}
         giftName={gameState.danceGiftName}
+        customVideoUrl={gameState.customVideoUrl}
+        customIsGreenScreen={gameState.isGreenScreen}
         onClose={() => lotoEngine.stopDance()}
       />
 

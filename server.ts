@@ -17,8 +17,28 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: '60mb' }));
 app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
+
+// Upload custom dance video (MP4 green screen or WebM alpha)
+app.post('/api/upload-dance-video', (req, res) => {
+  try {
+    const { fileName, dataBase64, isGreenScreen } = req.body || {};
+    if (!dataBase64) return res.status(400).json({ error: 'Thiếu dữ liệu video' });
+    const safeName = (fileName || `dance_${Date.now()}.mp4`).replace(/[^a-zA-Z0-9.-]/g, '_');
+    const outDir = path.join(__dirname, 'public', 'assets', 'loto', 'dancers');
+    if (!fs.existsSync(outDir)) {
+      fs.mkdirSync(outDir, { recursive: true });
+    }
+    const outPath = path.join(outDir, safeName);
+    const buf = Buffer.from(dataBase64.replace(/^data:video\/\w+;base64,/, ''), 'base64');
+    fs.writeFileSync(outPath, buf);
+    const publicUrl = `/assets/loto/dancers/${safeName}`;
+    return res.json({ success: true, url: publicUrl, isGreenScreen: !!isGreenScreen });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
 
 // TikTok LIVE Integration State
 interface TikTokStats {
@@ -982,7 +1002,16 @@ app.post('/api/control', (req, res) => {
   if (action === 'speak' && (typeof text !== 'string' || !text.trim())) {
     return res.status(400).json({ success: false, error: 'Chưa nhập nội dung cần đọc' });
   }
-  const payload = { action, text: typeof text === 'string' ? text.trim().slice(0, 1000) : undefined };
+  const payload = {
+    action,
+    text: typeof text === 'string' ? text.trim().slice(0, 1000) : undefined,
+    danceStyle: req.body?.danceStyle,
+    danceDuration: req.body?.danceDuration,
+    danceDonorName: req.body?.danceDonorName,
+    danceGiftName: req.body?.danceGiftName,
+    customVideoUrl: req.body?.customVideoUrl,
+    isGreenScreen: req.body?.isGreenScreen,
+  };
   if (action === 'setRate' && payload.text) lastRateControl = { action, text: payload.text };
   if (action === 'setName') {
     // Plain name only: no control characters, at most 40 characters

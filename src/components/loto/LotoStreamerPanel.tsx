@@ -47,6 +47,13 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
   const [cloneLoading, setCloneLoading] = useState(false);
   const [cloneMsg, setCloneMsg] = useState('');
 
+  // Video Dancer & AI Motion State
+  const [danceVideoUrl, setDanceVideoUrl] = useState<string>('/assets/loto/dancers/dance-fan-sample.webm');
+  const [danceIsGreenScreen, setDanceIsGreenScreen] = useState<boolean>(false);
+  const [danceUploadMsg, setDanceUploadMsg] = useState<string>('');
+  const [isUploadingDance, setIsUploadingDance] = useState<boolean>(false);
+  const [showAiGuide, setShowAiGuide] = useState<boolean>(false);
+
   const refreshCloneStatus = () => {
     fetch('/api/loto/clone/status')
       .then((r) => r.json())
@@ -254,12 +261,60 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
     }
   };
 
+  const handleDanceVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingDance(true);
+    setDanceUploadMsg('Đang nạp file video nhảy...');
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        const res = await fetch('/api/upload-dance-video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileName: file.name,
+            dataBase64: base64,
+            isGreenScreen: danceIsGreenScreen,
+          }),
+        });
+        const data = await res.json();
+        if (data.success && data.url) {
+          setDanceVideoUrl(data.url);
+          setDanceUploadMsg(`✓ Đã nạp video: ${file.name}`);
+        } else {
+          setDanceUploadMsg(`Lỗi tải video: ${data.error || 'Thất bại'}`);
+        }
+        setIsUploadingDance(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      setDanceUploadMsg(`Lỗi: ${err.message}`);
+      setIsUploadingDance(false);
+    }
+  };
+
   const handleTriggerDance = (style: 'fan' | 'hipshake' | 'disco' | 'robot' | 'troupe') => {
-    lotoEngine.triggerDance(style, 10000);
+    lotoEngine.triggerDance(
+      style,
+      10000,
+      undefined,
+      undefined,
+      danceVideoUrl || undefined,
+      danceIsGreenScreen
+    );
     fetch('/api/control', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'loto_dance', text: style }),
+      body: JSON.stringify({
+        action: 'loto_dance',
+        text: style,
+        danceStyle: style,
+        danceDuration: 10000,
+        customVideoUrl: danceVideoUrl || undefined,
+        isGreenScreen: danceIsGreenScreen,
+      }),
     }).catch(() => {});
 
     const tierMap: Record<string, 'rose' | 'icecream' | 'crown' | 'rocket'> = {
@@ -1291,6 +1346,144 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
             <span className="text-[10px] font-black">Vũ Đoàn Đồng Diễn</span>
             <span className="text-[8px] opacity-80">2 Bên sân khấu</span>
           </button>
+        </div>
+
+        {/* CÀI ĐẶT NGUỒN VIDEO & TÁCH NỀN XANH (CHROMA KEY) */}
+        <div className="pt-2 border-t border-purple-500/30 flex flex-col gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
+              <span>🎬 Nguồn Video Vũ Điệu:</span>
+              <span className="text-[9px] text-slate-300 font-normal">
+                {danceVideoUrl ? 'Đang bật chế độ Video Chuyển Động Thật' : 'Chế độ mô hình 3D tĩnh'}
+              </span>
+            </span>
+
+            <button
+              onClick={() => setShowAiGuide(!showAiGuide)}
+              className="px-2 py-0.5 rounded-full bg-blue-950/80 hover:bg-blue-900 border border-blue-400/50 text-[9px] text-blue-200 font-semibold flex items-center gap-1"
+            >
+              <span>💡 Cách tạo video nhảy bằng AI</span>
+              <span>{showAiGuide ? '▲' : '▼'}</span>
+            </button>
+          </div>
+
+          {/* Quick preset selector */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              onClick={() => {
+                setDanceVideoUrl('/assets/loto/dancers/dance-fan-sample.webm');
+                setDanceIsGreenScreen(false);
+              }}
+              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
+                danceVideoUrl === '/assets/loto/dancers/dance-fan-sample.webm'
+                  ? 'bg-amber-500 text-slate-950 border-amber-300 shadow'
+                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-amber-400'
+              }`}
+            >
+              🪭 Video Mẫu Múa Quạt (WebM)
+            </button>
+
+            <button
+              onClick={() => {
+                setDanceVideoUrl('/assets/loto/dancers/dance-disco-sample.webm');
+                setDanceIsGreenScreen(false);
+              }}
+              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
+                danceVideoUrl === '/assets/loto/dancers/dance-disco-sample.webm'
+                  ? 'bg-cyan-500 text-slate-950 border-cyan-300 shadow'
+                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-cyan-400'
+              }`}
+            >
+              🕺 Video Mẫu Disco (WebM)
+            </button>
+
+            <button
+              onClick={() => {
+                setDanceVideoUrl('/assets/loto/dancers/dance-fan-sample.mp4');
+                setDanceIsGreenScreen(true);
+              }}
+              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
+                danceVideoUrl.endsWith('.mp4') && danceIsGreenScreen
+                  ? 'bg-emerald-500 text-slate-950 border-emerald-300 shadow'
+                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-emerald-400'
+              }`}
+            >
+              🟢 Video Phông Xanh (Chroma Key)
+            </button>
+
+            <button
+              onClick={() => {
+                setDanceVideoUrl('');
+                setDanceIsGreenScreen(false);
+              }}
+              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
+                !danceVideoUrl
+                  ? 'bg-purple-600 text-white border-purple-300 shadow'
+                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-purple-400'
+              }`}
+            >
+              🎨 Mô hình 3D (Không dùng video)
+            </button>
+          </div>
+
+          {/* Upload file video riêng */}
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            <label className="cursor-pointer px-3 py-1.5 rounded-xl bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white text-[10px] font-bold flex items-center gap-1.5 shadow active:scale-95 transition-all">
+              <span>📁 Nạp File Video Nhảy Riêng (.mp4 / .webm)</span>
+              <input
+                type="file"
+                accept="video/mp4,video/webm"
+                onChange={handleDanceVideoUpload}
+                disabled={isUploadingDance}
+                className="hidden"
+              />
+            </label>
+
+            <label className="flex items-center gap-1.5 text-[9.5px] text-slate-300 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={danceIsGreenScreen}
+                onChange={(e) => setDanceIsGreenScreen(e.target.checked)}
+                className="rounded accent-emerald-500"
+              />
+              <span>Tự động tách phông xanh (Chroma Key Green Screen)</span>
+            </label>
+
+            {danceUploadMsg && (
+              <span className="text-[9px] text-emerald-400 font-medium animate-pulse">
+                {danceUploadMsg}
+              </span>
+            )}
+          </div>
+
+          {/* HƯỚNG DẪN CHI TIẾT TẠO VIDEO NHẢY BẰNG AI TỪ VIDEO THẬT */}
+          {showAiGuide && (
+            <div className="mt-2 p-3 rounded-xl bg-slate-900/95 border border-blue-500/40 text-[10px] text-slate-300 space-y-2">
+              <div className="font-bold text-blue-300 text-xs flex items-center gap-1">
+                <span>🤖</span>
+                <span>QUY TRÌNH BIẾN 1 VIDEO NGƯỜI THẬT THÀNH NHÂN VẬT HOẠT HÌNH NHẢY:</span>
+              </div>
+              <ol className="list-decimal list-inside space-y-1 pl-1 text-[9.5px] text-slate-200">
+                <li>
+                  <strong className="text-yellow-300">Chuẩn bị video người thật:</strong> Quay hoặc tải 1 video TikTok ngắn (5-10s) người thật đang múa quạt, lắc hông, hoặc nhảy vinahouse.
+                </li>
+                <li>
+                  <strong className="text-yellow-300">Vào công cụ AI Motion:</strong> Truy cập <strong>viggle.ai</strong> (hoặc bot Discord Viggle) / <strong>domoai.app</strong> hoàn toàn miễn phí.
+                </li>
+                <li>
+                  <strong className="text-yellow-300">Ghép chuyển động (Motion Transfer):</strong>
+                  <ul className="list-disc list-inside pl-3 text-slate-300">
+                    <li>Ảnh nhân vật (Character): Chọn ảnh 3D có sẵn trong thư mục <code>public/assets/loto/dancers/dancer-fan.png</code></li>
+                    <li>Video chuyển động (Motion): Tải video người thật nhảy ở Bước 1 lên.</li>
+                    <li>Background: Chọn <strong>Green Screen</strong> (Phông xanh).</li>
+                  </ul>
+                </li>
+                <li>
+                  <strong className="text-yellow-300">Tải video về & nạp vào game:</strong> Bấm nút <strong>"📁 Nạp File Video Nhảy Riêng"</strong> ở trên và chọn video vừa tải về. Sân khấu Lô Tô sẽ tự động tách nền xanh và cho nhân vật nhảy múa trực tiếp 60fps trên bục gỗ!
+                </li>
+              </ol>
+            </div>
+          )}
         </div>
       </div>
 

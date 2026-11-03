@@ -61,6 +61,8 @@ export interface LotoState {
   danceStyle: LotoDanceStyle | null;
   danceDonorName?: string;
   danceGiftName?: string;
+  customVideoUrl?: string;
+  isGreenScreen?: boolean;
 }
 
 // Generate a authentic Vietnamese Lô Tô card: 3 rows, 9 columns.
@@ -142,6 +144,8 @@ class LotoEngineService {
   private danceStyle: LotoDanceStyle | null = null;
   private danceDonorName?: string;
   private danceGiftName?: string;
+  private customVideoUrl?: string;
+  private isGreenScreen?: boolean;
   private danceTimer: ReturnType<typeof setTimeout> | null = null;
 
   private listeners: Set<(state: LotoState) => void> = new Set();
@@ -325,12 +329,16 @@ class LotoEngineService {
     style: LotoDanceStyle | null,
     durationMs: number = 8000,
     donorName?: string,
-    giftName?: string
+    giftName?: string,
+    customVideoUrl?: string,
+    isGreenScreen?: boolean
   ) {
     if (this.danceTimer) clearTimeout(this.danceTimer);
     this.danceStyle = style;
     this.danceDonorName = donorName;
     this.danceGiftName = giftName;
+    this.customVideoUrl = customVideoUrl;
+    this.isGreenScreen = isGreenScreen;
     this.notify();
 
     if (style && durationMs > 0) {
@@ -338,6 +346,8 @@ class LotoEngineService {
         this.danceStyle = null;
         this.danceDonorName = undefined;
         this.danceGiftName = undefined;
+        this.customVideoUrl = undefined;
+        this.isGreenScreen = undefined;
         this.notify();
       }, durationMs);
     }
@@ -348,6 +358,8 @@ class LotoEngineService {
     this.danceStyle = null;
     this.danceDonorName = undefined;
     this.danceGiftName = undefined;
+    this.customVideoUrl = undefined;
+    this.isGreenScreen = undefined;
     this.notify();
   }
 
@@ -371,6 +383,8 @@ class LotoEngineService {
       danceStyle: this.danceStyle,
       danceDonorName: this.danceDonorName,
       danceGiftName: this.danceGiftName,
+      customVideoUrl: this.customVideoUrl,
+      isGreenScreen: this.isGreenScreen,
     };
   }
 
