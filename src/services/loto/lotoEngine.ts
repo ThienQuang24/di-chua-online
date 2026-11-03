@@ -28,6 +28,17 @@ export interface LotoWinner {
   roundId: number;
 }
 
+export type LotoTicketLayout = '1-ticket' | '2-tickets' | '4-tickets' | '6-tickets';
+export type LotoTicketDisplayMode = 'priority_waiting' | 'auto_cycle' | 'pinned';
+
+export interface LotoScreenConfig {
+  showOnScreenTickets: boolean;
+  layout: LotoTicketLayout;
+  mode: LotoTicketDisplayMode;
+  pinnedUsernames: string[];
+  cycleIntervalSeconds: number;
+}
+
 export interface LotoState {
   roundId: number;
   calledNumbers: number[];
@@ -39,6 +50,7 @@ export interface LotoState {
   lastWinner: LotoWinner | null;
   historyWinners: LotoWinner[];
   activeTicketCount: number;
+  screenConfig: LotoScreenConfig;
 }
 
 // Generate a authentic Vietnamese Lô Tô card: 3 rows, 9 columns.
@@ -101,6 +113,14 @@ class LotoEngineService {
   private spinInterval: number = 18; // 18 seconds between numbers (enough time for AI to sing full loto chant)
   private autoTimer: ReturnType<typeof setInterval> | null = null;
 
+  private screenConfig: LotoScreenConfig = {
+    showOnScreenTickets: true,
+    layout: '4-tickets',
+    mode: 'priority_waiting',
+    pinnedUsernames: [],
+    cycleIntervalSeconds: 8,
+  };
+
   private tickets: Map<string, LotoTicket> = new Map();
   private lastWinner: LotoWinner | null = null;
   private historyWinners: LotoWinner[] = [];
@@ -112,6 +132,75 @@ class LotoEngineService {
   constructor() {
     // Start with auto-spin disabled until stream begins or owner turns it on
     this.isAutoSpin = false;
+    this.seedInitialTickets(4);
+  }
+
+  public getScreenConfig(): LotoScreenConfig {
+    return { ...this.screenConfig, pinnedUsernames: [...this.screenConfig.pinnedUsernames] };
+  }
+
+  public setScreenConfig(partial: Partial<LotoScreenConfig>) {
+    this.screenConfig = { ...this.screenConfig, ...partial };
+    this.notify();
+  }
+
+  public pinTicket(username: string) {
+    const key = username.toLowerCase();
+    if (!this.screenConfig.pinnedUsernames.includes(key)) {
+      this.screenConfig.pinnedUsernames.push(key);
+      this.notify();
+    }
+  }
+
+  public unpinTicket(username: string) {
+    const key = username.toLowerCase();
+    this.screenConfig.pinnedUsernames = this.screenConfig.pinnedUsernames.filter((u) => u !== key);
+    this.notify();
+  }
+
+  public removeTicket(username: string) {
+    const key = username.toLowerCase();
+    this.tickets.delete(key);
+    this.screenConfig.pinnedUsernames = this.screenConfig.pinnedUsernames.filter((u) => u !== key);
+    this.notify();
+  }
+
+  public clearAllTickets() {
+    this.tickets.clear();
+    this.screenConfig.pinnedUsernames = [];
+    this.notify();
+  }
+
+  public rerollTicket(username: string) {
+    const key = username.toLowerCase();
+    const t = this.tickets.get(key);
+    if (!t) return;
+    const rawGrid = generateVietnameseLotoCard();
+    t.grid = rawGrid.map((row) =>
+      row.map((val) => ({
+        val,
+        isMarked: val !== null && this.calledNumbers.includes(val),
+      }))
+    );
+    this.recalcTicketStatus(t);
+    this.notify();
+  }
+
+  public seedInitialTickets(count: number = 4) {
+    const defaultViewers = [
+      { user: 'hoang_nam', name: 'Hoàng Nam (TikTok)', avatar: '/assets/loto/patron-1.png' },
+      { user: 'linh_dan', name: 'Linh Đan (Fan Cứng)', avatar: '/assets/nhau/patron-female-1.png' },
+      { user: 'minh_tuan', name: 'Minh Tuấn (VIP)', avatar: '/assets/nhau/patron-1.png' },
+      { user: 'thanh_hang', name: 'Thanh Hằng (Góp Tim)', avatar: '/assets/nhau/patron-female-2.png' },
+      { user: 'bao_ngoc', name: 'Bảo Ngọc', avatar: '/assets/loto/patron-2.png' },
+      { user: 'quoc_bao', name: 'Quốc Bảo', avatar: '/assets/nhau/patron-uncle-1.png' },
+    ];
+    for (let i = 0; i < Math.min(count, defaultViewers.length); i++) {
+      const v = defaultViewers[i];
+      if (!this.tickets.has(v.user)) {
+        this.issueTicket(v.user, v.name, v.avatar);
+      }
+    }
   }
 
   public subscribe(cb: (state: LotoState) => void) {
@@ -186,6 +275,7 @@ class LotoEngineService {
       lastWinner: this.lastWinner,
       historyWinners: [...this.historyWinners],
       activeTicketCount: this.tickets.size,
+      screenConfig: this.getScreenConfig(),
     };
   }
 
@@ -414,20 +504,24 @@ class LotoEngineService {
     this.lastWinner = null;
 
     // Regenerate tickets for existing players
-    this.tickets.forEach((ticket, key) => {
-      const rawGrid = generateVietnameseLotoCard();
-      ticket.grid = rawGrid.map((row) =>
-        row.map((val) => ({
-          val,
-          isMarked: false,
-        }))
-      );
-      ticket.markedCount = 0;
-      ticket.waitingNumbers = [];
-      ticket.hasWon = false;
-      ticket.winningRow = undefined;
-      ticket.id = `ticket_${this.roundId}_${key}`;
-    });
+    if (this.tickets.size === 0) {
+      this.seedInitialTickets(4);
+    } else {
+      this.tickets.forEach((ticket, key) => {
+        const rawGrid = generateVietnameseLotoCard();
+        ticket.grid = rawGrid.map((row) =>
+          row.map((val) => ({
+            val,
+            isMarked: false,
+          }))
+        );
+        ticket.markedCount = 0;
+        ticket.waitingNumbers = [];
+        ticket.hasWon = false;
+        ticket.winningRow = undefined;
+        ticket.id = `ticket_${this.roundId}_${key}`;
+      });
+    }
 
     this.notify();
   }

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { LotoCage } from './LotoCage';
 import { LotoWinnerCelebration } from './LotoWinnerCelebration';
 import { LotoFairCrowd } from './LotoFairCrowd';
+import { LotoLiveTicketsBoard } from './LotoLiveTicketsBoard';
 import { lotoEngine, LotoState, LotoTicket } from '../../services/loto/lotoEngine';
 import { soundEngine, formatUsernameForTts } from '../../services/soundEngine';
 import { GiftNotificationBanner } from '../GiftNotificationBanner';
@@ -195,8 +196,27 @@ export const LotoStage: React.FC<LotoStageProps> = ({
         </div>
       </div>
 
+      {/* 3. KHU VỰC BẢNG VÉ TRỰC TIẾP TRÊN MÀN HÌNH LIVE (TIKTOK STREAM BOARD) */}
+      {gameState.screenConfig?.showOnScreenTickets && (
+        <div className="relative z-30 w-full flex-1 flex flex-col justify-center px-1 my-0.5 overflow-hidden">
+          <LotoLiveTicketsBoard
+            tickets={tickets}
+            currentNumber={gameState.currentNumber}
+            screenConfig={gameState.screenConfig}
+            onSelectTicket={(username) => {
+              setSelectedTicketUser(username);
+              setShowTicket(true);
+            }}
+          />
+        </div>
+      )}
+
       {/* 4. ĐÁM ĐÔNG KHÁN GIẢ HỘI CHỢ NGỒI DÒ VÉ TRÊN SÂN HỘI TRƯỜNG (KHÔNG ĐÈ LÊN SÂN KHẤU) */}
-      <div className="absolute inset-0 z-20 pointer-events-none">
+      <div
+        className={`absolute inset-0 z-20 pointer-events-none transition-opacity duration-300 ${
+          gameState.screenConfig?.showOnScreenTickets ? 'opacity-25' : 'opacity-100'
+        }`}
+      >
         <LotoFairCrowd
           devotees={devotees}
           currentNumber={gameState.currentNumber}
@@ -264,13 +284,31 @@ export const LotoStage: React.FC<LotoStageProps> = ({
 
       {/* 6. KHU VỰC ĐÁY: THANH ĐIỀU HƯỚNG GỌN GÀNG (KHÔNG CHE KHUẤT KHÁN GIẢ) */}
       <div className="relative z-30 w-full max-w-[390px] mx-auto px-2 pb-2 flex items-center justify-between gap-1.5">
-        <button
-          onClick={() => setShowStageQr((prev) => !prev)}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/85 border border-yellow-400/60 text-[8px] text-yellow-300 font-bold shadow-lg backdrop-blur-sm hover:brightness-110 active:scale-95 transition-all"
-        >
-          <span>📱</span>
-          <span>{showStageQr ? '✕ Đóng QR' : 'Quét QR Cầm Vé'}</span>
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setShowStageQr((prev) => !prev)}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/85 border border-yellow-400/60 text-[8px] text-yellow-300 font-bold shadow-lg backdrop-blur-sm hover:brightness-110 active:scale-95 transition-all"
+          >
+            <span>📱</span>
+            <span>{showStageQr ? '✕ Đóng QR' : 'Quét QR'}</span>
+          </button>
+
+          <button
+            onClick={() =>
+              lotoEngine.setScreenConfig({
+                showOnScreenTickets: !gameState.screenConfig?.showOnScreenTickets,
+              })
+            }
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[8px] font-bold shadow-lg backdrop-blur-sm transition-all active:scale-95 ${
+              gameState.screenConfig?.showOnScreenTickets
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 border border-yellow-300 shadow-[0_0_10px_rgba(245,158,11,0.5)]'
+                : 'bg-black/85 text-amber-300 border border-amber-500/50'
+            }`}
+          >
+            <span>📺</span>
+            <span>{gameState.screenConfig?.showOnScreenTickets ? 'Vé Live: BẬT' : 'Hiện Vé Live'}</span>
+          </button>
+        </div>
 
         {activeTicket && (
           <button
@@ -279,7 +317,7 @@ export const LotoStage: React.FC<LotoStageProps> = ({
           >
             <span>🎫</span>
             <span>
-              {showTicket ? '✕ Đóng vé' : `Xem vé: ${activeTicket.displayName} (${activeTicket.markedCount}/15)`}
+              {showTicket ? '✕ Đóng' : `Vé: ${activeTicket.displayName} (${activeTicket.markedCount}/15)`}
             </span>
           </button>
         )}
