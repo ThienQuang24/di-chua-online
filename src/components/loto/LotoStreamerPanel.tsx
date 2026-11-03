@@ -655,31 +655,10 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="text-slate-400 font-semibold">Kho bài hát ca sĩ hát thật:</span>
-              {availableSongs.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {availableSongs.map((s) => (
-                    <div key={s} className="inline-flex items-center rounded-lg border border-emerald-500/50 bg-slate-900 overflow-hidden shadow-sm">
-                      <button
-                        onClick={() => soundEngine.playLotoCall(s)}
-                        className="px-2 py-1 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 font-mono font-bold cursor-pointer transition-all flex items-center gap-1"
-                        title={`Nghe thử bài hát số ${s}`}
-                      >
-                        <span>▶️</span>
-                        <span>#{s}</span>
-                      </button>
-                      <button
-                        onClick={() => lotoEngine.spinNext(s)}
-                        className="px-2 py-1 bg-amber-950/90 hover:bg-amber-900 border-l border-amber-600/50 text-amber-300 text-[10px] font-bold cursor-pointer transition-all flex items-center gap-0.5"
-                        title={`Quay lồng cầu và gọi trúng số ${s} trên sân khấu`}
-                      >
-                        <span>🎲 Quay #{s}</span>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <span className="text-slate-500 italic">Chưa có bài hát nào</span>
-              )}
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-500/60 text-emerald-300 font-bold text-[10px] flex items-center gap-1 shadow-sm">
+                <span>🎉</span>
+                <span>Đã có đủ {availableSongs.length}/90 bài hát người thật (100% không ghép nối)</span>
+              </span>
             </div>
 
             {/* Form nạp nhanh file MP3 ca sĩ hát luyến láy */}
@@ -695,7 +674,7 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
               />
               <label className="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white font-bold text-[10px] cursor-pointer flex items-center gap-1 active:scale-95 transition-all">
                 <span>{isUploading ? '⏳' : '📁'}</span>
-                <span>{isUploading ? 'Đang nạp...' : 'Chọn MP3'}</span>
+                <span>{isUploading ? 'Đang nạp...' : 'Thay MP3'}</span>
                 <input
                   type="file"
                   accept="audio/*"
@@ -706,6 +685,34 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
               </label>
             </div>
           </div>
+
+          {/* Danh sách 90 bài hát cuộn mượt mà */}
+          {availableSongs.length > 0 ? (
+            <div className="max-h-36 overflow-y-auto flex flex-wrap gap-1 p-2 rounded-lg bg-slate-950/90 border border-slate-800/80 shadow-inner">
+              {availableSongs.map((s) => (
+                <div key={s} className="inline-flex items-center rounded border border-emerald-500/30 bg-slate-900/90 overflow-hidden text-[10px] hover:border-emerald-400 transition-all">
+                  <button
+                    onClick={() => soundEngine.playLotoCall(s)}
+                    className="px-1.5 py-0.5 bg-emerald-950/80 hover:bg-emerald-800 text-emerald-300 font-mono font-bold flex items-center gap-0.5 cursor-pointer"
+                    title={`Bấm nghe thử ca sĩ hát bài số ${s}`}
+                  >
+                    <span>▶️</span>
+                    <span>#{s}</span>
+                  </button>
+                  <button
+                    onClick={() => lotoEngine.spinNext(s)}
+                    className="px-1.5 py-0.5 bg-amber-950/90 hover:bg-amber-800 border-l border-amber-600/40 text-amber-300 font-bold flex items-center gap-0.5 cursor-pointer text-[9px]"
+                    title={`Quay lồng cầu và gọi trúng số ${s} trên sân khấu`}
+                  >
+                    <span>🎲</span>
+                    <span>Quay</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <span className="text-slate-500 italic">Chưa có bài hát nào</span>
+          )}
 
           {uploadMsg && (
             <div className={`text-[11px] font-semibold ${uploadMsg.includes('Lỗi') ? 'text-rose-400' : 'text-emerald-400'}`}>
