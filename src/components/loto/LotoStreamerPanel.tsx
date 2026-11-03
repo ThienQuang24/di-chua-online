@@ -233,6 +233,13 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
   };
 
   const [simulatedGifterName, setSimulatedGifterName] = useState<string>('');
+  const [prizeInput, setPrizeInput] = useState<string>(gameState.currentPrize || 'Thẻ cào điện thoại 50.000đ');
+
+  const handleSavePrize = (prize: string) => {
+    const val = prize.trim() || 'Thẻ cào điện thoại 50.000đ';
+    lotoEngine.setPrize(val);
+    setPrizeInput(val);
+  };
 
   const handleSimulateGift = (giftName: string, coins: number) => {
     const fakeNames = ['Đại Gia Phúc', 'Thúy Kiều', 'Văn Hậu', 'Trâm Anh', 'Tuấn Ken', 'Bảo Ngọc', 'Hoàng Nam'];
@@ -323,6 +330,52 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
           >
             🔄 Ván mới
           </button>
+        </div>
+      </div>
+
+      {/* 1.5. CÀI ĐẶT PHẦN THƯỞNG VÁN NÀY (CHO NGƯỜI TRÚNG KINH NHẬN QUÀ) */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 p-3 rounded-xl bg-gradient-to-r from-yellow-950/40 via-amber-950/30 to-slate-950/60 border border-yellow-500/40">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">🎁</span>
+          <div>
+            <div className="text-xs font-bold text-yellow-300 uppercase tracking-wide flex items-center gap-1.5">
+              <span>Phần Thưởng Ván Này (Người KINH Nhận Quà)</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-red-600 text-white text-[8px] font-black uppercase">
+                Hiện Trên Live
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400">
+              Người chơi nổ Kinh sẽ thấy phần quà này kèm hướng dẫn chụp màn hình inbox nhận thưởng.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            value={prizeInput}
+            onChange={(e) => setPrizeInput(e.target.value)}
+            onBlur={() => handleSavePrize(prizeInput)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSavePrize(prizeInput)}
+            placeholder="Nhập tên phần quà (VD: Thẻ cào 50K)..."
+            className="px-3 py-1.5 rounded-lg bg-slate-950 border border-yellow-400/50 text-xs text-yellow-200 placeholder:text-slate-500 w-52 focus:outline-none focus:border-yellow-300"
+          />
+
+          <div className="flex items-center gap-1">
+            {['Thẻ cào 20K', 'Thẻ cào 50K', 'Thẻ cào 100K', 'Gấu bông', 'Hộp quà bí mật'].map((p) => (
+              <button
+                key={p}
+                onClick={() => handleSavePrize(p)}
+                className={`px-2 py-1 rounded-md text-[9.5px] font-bold border transition-all active:scale-95 ${
+                  prizeInput === p
+                    ? 'bg-yellow-500 text-slate-950 border-yellow-300 shadow'
+                    : 'bg-slate-800/80 text-amber-200/80 border-slate-700 hover:border-yellow-500/60'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

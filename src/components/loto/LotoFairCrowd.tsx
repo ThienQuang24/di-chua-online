@@ -3,10 +3,13 @@ import { motion } from 'motion/react';
 import { Devotee } from '../../types/temple';
 import { lotoEngine } from '../../services/loto/lotoEngine';
 
+export type LotoDanceTier = 'rose' | 'icecream' | 'crown' | 'rocket' | null;
+
 interface LotoFairCrowdProps {
   devotees: Devotee[];
   currentNumber: number | null;
   onSelectPlayer?: (username: string) => void;
+  activeDanceTier?: LotoDanceTier;
 }
 
 // 6 diverse 3D character models for the festival crowd
@@ -62,7 +65,12 @@ export const hash = (s: string) => {
   return Math.abs(h);
 };
 
-export const LotoFairCrowd: React.FC<LotoFairCrowdProps> = ({ devotees, currentNumber, onSelectPlayer }) => {
+export const LotoFairCrowd: React.FC<LotoFairCrowdProps> = ({
+  devotees,
+  currentNumber,
+  onSelectPlayer,
+  activeDanceTier,
+}) => {
   return (
     <div className="absolute inset-0 pointer-events-none select-none overflow-hidden">
       {FAIR_SEATS.map((seat, idx) => {
@@ -80,11 +88,23 @@ export const LotoFairCrowd: React.FC<LotoFairCrowdProps> = ({ devotees, currentN
           currentNumber !== null &&
           ticket.grid.some((row) => row.some((c) => c.val === currentNumber));
 
-        // Use cheering sprite if winning or waiting for Kinh, otherwise pick diverse model
-        const modelIndex = isWinner || isWaitingKin ? 1 : (seat.modelIdx + seed) % FAIR_MODELS.length;
+        // Use cheering sprite if winning or waiting for Kinh, or during active dance
+        const isDancing = Boolean(activeDanceTier);
+        const modelIndex = isWinner || isWaitingKin || isDancing ? 1 : (seat.modelIdx + seed) % FAIR_MODELS.length;
         const sprite = FAIR_MODELS[modelIndex];
         const avatarProfile = DEFAULT_AVATARS[seed % DEFAULT_AVATARS.length];
         const isFlipped = seat.flip;
+
+        const danceAnimClass =
+          activeDanceTier === 'rocket'
+            ? 'animate-bounce scale-125 drop-shadow-[0_0_15px_rgba(239,68,68,0.9)]'
+            : activeDanceTier === 'crown'
+            ? 'animate-bounce scale-115 drop-shadow-[0_0_12px_rgba(234,179,8,0.8)]'
+            : activeDanceTier === 'icecream'
+            ? 'animate-bounce scale-110'
+            : activeDanceTier === 'rose'
+            ? 'animate-pulse scale-105'
+            : '';
 
         return (
           <motion.div
@@ -94,6 +114,7 @@ export const LotoFairCrowd: React.FC<LotoFairCrowdProps> = ({ devotees, currentN
               absolute -translate-x-1/2 -translate-y-full flex flex-col items-center cursor-pointer pointer-events-auto transition-all duration-300
               ${isWaitingKin ? 'animate-bounce' : ''}
               ${isWinner ? 'scale-125' : 'hover:scale-105'}
+              ${danceAnimClass}
             `}
             style={{
               left: `${seat.x}%`,
@@ -114,6 +135,16 @@ export const LotoFairCrowd: React.FC<LotoFairCrowdProps> = ({ devotees, currentN
               ) : isWaitingKin && ticket ? (
                 <span className="px-1.5 py-0.5 rounded-full bg-gradient-to-r from-red-600 to-amber-500 text-[7px] font-extrabold text-yellow-200 shadow-md whitespace-nowrap animate-pulse">
                   🔥 Chờ {ticket.waitingNumbers.slice(0, 2).map((n) => (n < 10 ? `0${n}` : n)).join(',')}
+                </span>
+              ) : activeDanceTier ? (
+                <span className="px-1.5 py-0.5 rounded-full bg-gradient-to-r from-yellow-500 to-amber-500 text-[7px] font-black text-slate-950 shadow-md animate-bounce whitespace-nowrap">
+                  {activeDanceTier === 'rocket'
+                    ? '🚀 QUẨY TỚI BẾN!'
+                    : activeDanceTier === 'crown'
+                    ? '👑 ĐẠI GIA QUẨY!'
+                    : activeDanceTier === 'icecream'
+                    ? '🍦 NHÚN NHẢY NÀO!'
+                    : '🌹 HOA HỒNG TƯƠI!'}
                 </span>
               ) : justMatched ? (
                 <span className="px-1.5 py-0.5 rounded bg-emerald-500 text-[7px] font-bold text-slate-950 shadow animate-ping whitespace-nowrap">

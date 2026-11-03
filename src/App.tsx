@@ -455,8 +455,31 @@ function MainApp() {
     setComments((prev) => [...prev.slice(-30), newComment]);
     addMerit(cleanUser, 1, avatarUrl); // one comment = one point
 
+    let isLayVe = false;
     if (currentTheme === 'loto') {
-      lotoEngine.issueTicket(cleanUser, cleanUser, avatarUrl);
+      const lower = commentText.toLowerCase().trim();
+      isLayVe =
+        lower.includes('layve') ||
+        lower.includes('lay ve') ||
+        lower.includes('lấy vé') ||
+        lower.includes('xin ve') ||
+        lower.includes('xin vé') ||
+        lower.includes('cho ve') ||
+        lower.includes('cho vé') ||
+        lower === 've' ||
+        lower === 'vé' ||
+        lower.includes('cap ve') ||
+        lower.includes('cấp vé') ||
+        lower.includes('dò vé') ||
+        lower.includes('do ve');
+
+      if (isLayVe) {
+        lotoEngine.issueTicket(cleanUser, cleanUser, avatarUrl);
+        soundEngine.playLotusBloom(0.6);
+        if (config.autoTts) {
+          soundEngine.speak(`Đã cấp vé may mắn cho bạn ${formatUsernameForTts(cleanUser)}!`);
+        }
+      }
     } else if (currentTheme === 'nhau') {
       const lower = commentText.toLowerCase();
       if (lower.includes('dzo') || lower.includes('zo') || lower.includes('123') || lower.includes('uong') || lower.includes('cheers') || lower.includes('can ly')) {
@@ -473,11 +496,21 @@ function MainApp() {
       }
     }
 
-    const allowNewDevotee = currentTheme === 'chua' ? isAdidaphat : true;
+    const hasExistingTicket = currentTheme === 'loto' && lotoEngine.getTicketForUser(cleanUser) !== undefined;
+    const allowNewDevotee =
+      currentTheme === 'chua'
+        ? isAdidaphat
+        : currentTheme === 'loto'
+        ? isLayVe || hasExistingTicket
+        : true;
 
     addOrUpdateDevotee(
       cleanUser,
-      (d) => ({ activeComment: maskBanned(commentText), commentTimestamp: now, avatarUrl: avatarUrl || d?.avatarUrl }),
+      (d) => ({
+        activeComment: isLayVe ? `🎫 Nhận vé (${maskBanned(commentText)})` : maskBanned(commentText),
+        commentTimestamp: now,
+        avatarUrl: avatarUrl || d?.avatarUrl,
+      }),
       allowNewDevotee
     );
 

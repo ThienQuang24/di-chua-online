@@ -26,6 +26,7 @@ export interface LotoWinner {
   winningRowNumbers: number[];
   wonAt: number;
   roundId: number;
+  prize?: string;
 }
 
 export type LotoTicketLayout = '1-ticket' | '2-tickets' | '4-tickets' | '6-tickets';
@@ -54,6 +55,7 @@ export interface LotoState {
   spotlightTicketUser: string | null;
   showSpotlightTicket: boolean;
   autoShowOnWaitingKin: boolean;
+  currentPrize: string;
 }
 
 // Generate a authentic Vietnamese Lô Tô card: 3 rows, 9 columns.
@@ -131,6 +133,7 @@ class LotoEngineService {
   private tickets: Map<string, LotoTicket> = new Map();
   private lastWinner: LotoWinner | null = null;
   private historyWinners: LotoWinner[] = [];
+  private currentPrize: string = 'Thẻ cào điện thoại 50.000đ';
 
   private listeners: Set<(state: LotoState) => void> = new Set();
   private onNumberCalledCallbacks: Set<(num: number, chant: string, spokenText: string) => void> = new Set();
@@ -322,7 +325,17 @@ class LotoEngineService {
       spotlightTicketUser: this.spotlightTicketUser,
       showSpotlightTicket: this.showSpotlightTicket,
       autoShowOnWaitingKin: this.autoShowOnWaitingKin,
+      currentPrize: this.currentPrize,
     };
+  }
+
+  public setPrize(prize: string) {
+    this.currentPrize = prize.trim() || 'Thẻ cào 50.000đ';
+    this.notify();
+  }
+
+  public getPrize(): string {
+    return this.currentPrize;
   }
 
   public getTickets(): LotoTicket[] {
@@ -468,6 +481,7 @@ class LotoEngineService {
               winningRowNumbers,
               wonAt: Date.now(),
               roundId: this.roundId,
+              prize: this.currentPrize,
             });
           }
         }
@@ -531,6 +545,7 @@ class LotoEngineService {
       winningRowNumbers: row0Nums,
       wonAt: Date.now(),
       roundId: this.roundId,
+      prize: this.currentPrize,
     };
 
     this.lastWinner = winner;

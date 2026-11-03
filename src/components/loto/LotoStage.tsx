@@ -38,6 +38,39 @@ export const LotoStage: React.FC<LotoStageProps> = ({
   const [showStageQr, setShowStageQr] = useState(false);
   const [showGiftMenu, setShowGiftMenu] = useState(false);
   const [networkInfo, setNetworkInfo] = useState<{ ticketUrl: string } | null>(null);
+  const [activeDanceTier, setActiveDanceTier] = useState<'rose' | 'icecream' | 'crown' | 'rocket' | null>(null);
+
+  useEffect(() => {
+    if (!currentGift) return;
+    const d = (currentGift.diamonds || 1) * (currentGift.comboCount || 1);
+    const name = currentGift.giftName.toLowerCase();
+
+    let tier: 'rose' | 'icecream' | 'crown' | 'rocket' = 'rose';
+    let duration = 3000;
+
+    if (d >= 1000 || name.includes('tên lửa') || name.includes('rocket') || name.includes('sư tử') || name.includes('pháo hoa')) {
+      tier = 'rocket';
+      duration = 11000;
+    } else if (d >= 90 || name.includes('vương miện') || name.includes('crown') || name.includes('tim') || name.includes('heart')) {
+      tier = 'crown';
+      duration = 8000;
+    } else if (d >= 10 || name.includes('kem') || name.includes('ice') || name.includes('donut') || name.includes('bánh')) {
+      tier = 'icecream';
+      duration = 5000;
+    } else {
+      tier = 'rose';
+      duration = 3000;
+    }
+
+    setActiveDanceTier(tier);
+    soundEngine.playLotoGiftDanceBeat(tier);
+
+    const timer = setTimeout(() => {
+      setActiveDanceTier(null);
+    }, duration);
+
+    return () => clearTimeout(timer);
+  }, [currentGift]);
 
   useEffect(() => {
     fetch('/api/network-info')
@@ -218,6 +251,19 @@ export const LotoStage: React.FC<LotoStageProps> = ({
               customRainingLabel="🎆 PHÁO HOA HỘI CHỢ RỰC RỠ! 🎆"
             />
           </div>
+
+          {/* Hướng dẫn chat lấy vé & thông tin phần thưởng ván */}
+          <div className="flex items-center justify-center gap-2 px-3 py-0.5 rounded-full bg-black/85 border border-yellow-400/60 shadow-md backdrop-blur-sm mt-0.5 animate-in fade-in">
+            <span className="text-[8.5px] text-yellow-300 font-bold flex items-center gap-1">
+              <span>💬</span>
+              <span>Chat <strong className="text-white underline">layve</strong> lấy vé</span>
+            </span>
+            <span className="text-[7.5px] text-slate-500">•</span>
+            <span className="text-[8.5px] text-amber-200 font-semibold flex items-center gap-1">
+              <span>🎁</span>
+              <span>Thưởng: <strong className="text-yellow-300">{gameState.currentPrize || 'Thẻ cào 50K'}</strong></span>
+            </span>
+          </div>
         </div>
 
         {/* Sân khấu biểu diễn: Lồng cầu quay số ảo & câu hò xướng số (nằm gọn trên bục gỗ) */}
@@ -236,6 +282,7 @@ export const LotoStage: React.FC<LotoStageProps> = ({
           devotees={devotees}
           currentNumber={gameState.currentNumber}
           onSelectPlayer={(username) => handleSelectUser(username)}
+          activeDanceTier={activeDanceTier}
         />
       </div>
 

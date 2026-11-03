@@ -109,7 +109,7 @@ export const LotoWinnerCelebration: React.FC<LotoWinnerCelebrationProps> = ({ wi
         </div>
 
         {/* Dãy số trúng */}
-        <div className="bg-black/70 rounded-xl px-4 py-2 border border-yellow-400/50 mb-4 w-full">
+        <div className="bg-black/70 rounded-xl px-4 py-2 border border-yellow-400/50 mb-3 w-full">
           <div className="text-[10px] text-amber-300 uppercase font-semibold mb-1">
             Dãy số may mắn đã KINH:
           </div>
@@ -130,6 +130,29 @@ export const LotoWinnerCelebration: React.FC<LotoWinnerCelebrationProps> = ({ wi
               </span>
             ))}
           </div>
+        </div>
+
+        {/* Hộp quà tặng thưởng sang trọng */}
+        <div className="mb-3 w-full p-2.5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 border-2 border-yellow-400 shadow-lg flex items-center justify-between gap-2 animate-pulse">
+          <div className="flex items-center gap-2">
+            <span className="text-3xl">🎁</span>
+            <div className="text-left">
+              <div className="text-[9.5px] font-bold text-yellow-300 uppercase tracking-wider">
+                PHẦN THƯỞNG VÁN NÀY:
+              </div>
+              <div className="text-xs sm:text-sm font-black text-white drop-shadow">
+                {winner.prize || 'Thẻ cào điện thoại 50.000đ'}
+              </div>
+            </div>
+          </div>
+          <span className="px-2 py-0.5 rounded-full bg-red-600 text-[8.5px] font-black uppercase text-white shadow">
+            Trúng Thưởng
+          </span>
+        </div>
+
+        {/* Hướng dẫn nhận thưởng cho người thắng */}
+        <div className="text-[10px] text-amber-200/90 bg-black/70 rounded-xl p-2 border border-amber-500/40 w-full mb-3 text-center">
+          📲 Bạn <strong>{winner.displayName}</strong> hãy <strong>chụp ảnh màn hình</strong> này và <strong>inbox cho kênh TikTok</strong> để nhận quà nhé!
         </div>
 
         <button
