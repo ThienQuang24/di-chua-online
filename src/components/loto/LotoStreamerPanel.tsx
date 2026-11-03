@@ -254,6 +254,33 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
     }
   };
 
+  const handleTriggerDance = (style: 'fan' | 'hipshake' | 'disco' | 'robot' | 'troupe') => {
+    lotoEngine.triggerDance(style, 10000);
+    fetch('/api/control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'loto_dance', text: style }),
+    }).catch(() => {});
+
+    const tierMap: Record<string, 'rose' | 'icecream' | 'crown' | 'rocket'> = {
+      fan: 'rose',
+      hipshake: 'icecream',
+      disco: 'crown',
+      robot: 'crown',
+      troupe: 'rocket',
+    };
+    soundEngine.playLotoGiftDanceBeat(tierMap[style]);
+  };
+
+  const handleStopDance = () => {
+    lotoEngine.stopDance();
+    fetch('/api/control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'loto_dance', text: 'stop' }),
+    }).catch(() => {});
+  };
+
   const MC_PROMPTS = [
     {
       label: '🌹 Kêu gọi tặng hoa nhận vé',
@@ -1165,6 +1192,105 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
               </button>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* 4.6. BỘ ĐIỀU KHIỂN MÔ HÌNH VŨ CÔNG NHẢY MÚA SÂN KHẤU */}
+      <div className="flex flex-col gap-2.5 bg-gradient-to-r from-purple-950/40 via-pink-950/30 to-amber-950/40 p-3 rounded-xl border border-pink-500/40">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm">💃</span>
+            <div>
+              <span className="text-xs font-bold text-pink-300 uppercase tracking-wide flex items-center gap-1.5">
+                <span>Mô Hình Vũ Công Nhảy Múa Trên Sân Khấu (3D Dancers)</span>
+                {gameState.danceStyle && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-emerald-600 text-white text-[8px] font-black uppercase animate-pulse">
+                    Đang nhảy: {gameState.danceStyle}
+                  </span>
+                )}
+              </span>
+              <p className="text-[10px] text-slate-400">
+                Bấm để kích hoạt mô hình vũ công nhảy các vũ điệu TikTok ngay trên sân khấu (hoặc tự động nhảy khi có quà TikTok).
+              </p>
+            </div>
+          </div>
+
+          {gameState.danceStyle && (
+            <button
+              onClick={handleStopDance}
+              className="px-2.5 py-1 rounded-lg bg-red-900/80 hover:bg-red-800 text-red-200 text-[10px] font-bold border border-red-500/60 shadow active:scale-95 transition-all"
+            >
+              ⏹️ Dừng vũ công
+            </button>
+          )}
+        </div>
+
+        {/* 5 Nút Chọn Kiểu Nhảy Trực Tiếp */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          <button
+            onClick={() => handleTriggerDance('fan')}
+            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
+              gameState.danceStyle === 'fan'
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 border-yellow-200 scale-105 shadow-[0_0_15px_rgba(245,158,11,0.6)]'
+                : 'bg-slate-950/70 border-amber-500/40 text-amber-200 hover:border-yellow-400'
+            }`}
+          >
+            <span className="text-xl">🪭</span>
+            <span className="text-[10px] font-black">Múa Quạt TikTok</span>
+            <span className="text-[8px] opacity-80">Tay dẻo quẹo</span>
+          </button>
+
+          <button
+            onClick={() => handleTriggerDance('hipshake')}
+            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
+              gameState.danceStyle === 'hipshake'
+                ? 'bg-gradient-to-r from-pink-600 to-rose-500 text-white border-pink-200 scale-105 shadow-[0_0_15px_rgba(244,63,94,0.6)]'
+                : 'bg-slate-950/70 border-pink-500/40 text-pink-200 hover:border-pink-400'
+            }`}
+          >
+            <span className="text-xl">💃</span>
+            <span className="text-[10px] font-black">Lắc Hông Bốc Lửa</span>
+            <span className="text-[8px] opacity-80">Cháy cả phòng</span>
+          </button>
+
+          <button
+            onClick={() => handleTriggerDance('disco')}
+            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
+              gameState.danceStyle === 'disco'
+                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white border-cyan-200 scale-105 shadow-[0_0_15px_rgba(6,182,212,0.6)]'
+                : 'bg-slate-950/70 border-cyan-500/40 text-cyan-200 hover:border-cyan-400'
+            }`}
+          >
+            <span className="text-xl">🕺</span>
+            <span className="text-[10px] font-black">Disco Vinahouse</span>
+            <span className="text-[8px] opacity-80">Chỉ tay lên nóc</span>
+          </button>
+
+          <button
+            onClick={() => handleTriggerDance('robot')}
+            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
+              gameState.danceStyle === 'robot'
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white border-emerald-200 scale-105 shadow-[0_0_15px_rgba(16,185,129,0.6)]'
+                : 'bg-slate-950/70 border-emerald-500/40 text-emerald-200 hover:border-emerald-400'
+            }`}
+          >
+            <span className="text-xl">🤖</span>
+            <span className="text-[10px] font-black">Robot Hiphop</span>
+            <span className="text-[8px] opacity-80">Pop & Lock cực ngầu</span>
+          </button>
+
+          <button
+            onClick={() => handleTriggerDance('troupe')}
+            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
+              gameState.danceStyle === 'troupe'
+                ? 'bg-gradient-to-r from-red-600 to-yellow-500 text-white border-yellow-200 scale-105 shadow-[0_0_15px_rgba(239,68,68,0.8)]'
+                : 'bg-slate-950/70 border-red-500/40 text-amber-200 hover:border-yellow-400'
+            }`}
+          >
+            <span className="text-xl">👯‍♀️</span>
+            <span className="text-[10px] font-black">Vũ Đoàn Đồng Diễn</span>
+            <span className="text-[8px] opacity-80">2 Bên sân khấu</span>
+          </button>
         </div>
       </div>
 

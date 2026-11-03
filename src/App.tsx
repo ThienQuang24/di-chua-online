@@ -616,6 +616,13 @@ function MainApp() {
     if (action === 'loto_reset') lotoEngine.resetRound();
     if (action === 'loto_auto_spin') lotoEngine.setAutoSpin(text === '1' || text === 'true');
     if (action === 'loto_interval' && Number(text) > 0) lotoEngine.setSpinInterval(Number(text));
+    if (action === 'loto_dance') {
+      if (text && text !== 'stop') {
+        lotoEngine.triggerDance(text as any, 10000);
+      } else {
+        lotoEngine.stopDance();
+      }
+    }
 
     if (!isStandaloneObs) return;
     if (action === 'speak' && text) soundEngine.speakNow(text);
@@ -753,6 +760,21 @@ function MainApp() {
           handlersRef.current.handleControl(data.action, data.text);
         } catch (err) {
           console.error('SSE control parse error', err);
+        }
+      });
+
+      eventSource.addEventListener('loto_update', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.danceStyle !== undefined) {
+            if (data.danceStyle) {
+              lotoEngine.triggerDance(data.danceStyle, 10000, data.danceDonorName, data.danceGiftName);
+            } else {
+              lotoEngine.stopDance();
+            }
+          }
+        } catch (err) {
+          console.error('SSE loto_update parse error', err);
         }
       });
 

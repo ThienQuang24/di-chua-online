@@ -82,6 +82,9 @@ interface ServerLotoState {
   currentChant: string;
   isSpinning: boolean;
   lastWinner: any | null;
+  danceStyle?: string | null;
+  danceDonorName?: string | null;
+  danceGiftName?: string | null;
 }
 
 const serverLotoState: ServerLotoState = {
@@ -91,6 +94,9 @@ const serverLotoState: ServerLotoState = {
   currentChant: 'Đêm hội Lô Tô đang mở màn, xin chúc cả nhà may mắn!',
   isSpinning: false,
   lastWinner: null,
+  danceStyle: null,
+  danceDonorName: null,
+  danceGiftName: null,
 };
 
 const serverLotoTickets: Map<string, ServerLotoTicket> = new Map();
@@ -300,7 +306,7 @@ app.get('/api/loto/ticket', (req, res) => {
 
 // Streamer synchronizes game state to server & broadcasts to all mobile companions
 app.post('/api/loto/sync', (req, res) => {
-  const { roundId, calledNumbers, currentNumber, currentChant, isSpinning, lastWinner } = req.body;
+  const { roundId, calledNumbers, currentNumber, currentChant, isSpinning, lastWinner, danceStyle, danceDonorName, danceGiftName } = req.body;
   if (typeof roundId === 'number') {
     if (roundId !== serverLotoState.roundId) {
       // New round started: clear old tickets or re-roll
@@ -313,6 +319,9 @@ app.post('/api/loto/sync', (req, res) => {
   if (typeof currentChant === 'string') serverLotoState.currentChant = currentChant;
   if (typeof isSpinning === 'boolean') serverLotoState.isSpinning = isSpinning;
   if (lastWinner !== undefined) serverLotoState.lastWinner = lastWinner;
+  if (danceStyle !== undefined) serverLotoState.danceStyle = danceStyle;
+  if (danceDonorName !== undefined) serverLotoState.danceDonorName = danceDonorName;
+  if (danceGiftName !== undefined) serverLotoState.danceGiftName = danceGiftName;
 
   // Recalculate all issued tickets
   serverLotoTickets.forEach((t) => recalcTicketStatus(t, serverLotoState.calledNumbers));
@@ -325,6 +334,9 @@ app.post('/api/loto/sync', (req, res) => {
     isSpinning: serverLotoState.isSpinning,
     lastWinner: serverLotoState.lastWinner,
     activeTicketCount: serverLotoTickets.size,
+    danceStyle: serverLotoState.danceStyle,
+    danceDonorName: serverLotoState.danceDonorName,
+    danceGiftName: serverLotoState.danceGiftName,
   });
 
   return res.json({ success: true });
@@ -949,7 +961,7 @@ app.post('/api/tiktok/connect', async (req, res) => {
 });
 
 // Streamer commands from the dashboard, relayed to the live stage page(s) that make the sound
-const CONTROL_ACTIONS = ['speak', 'shareReminder', 'bell', 'setRate', 'setName', 'loto_spin', 'loto_reset', 'loto_auto_spin', 'loto_interval', 'setTheme'];
+const CONTROL_ACTIONS = ['speak', 'shareReminder', 'bell', 'setRate', 'setName', 'loto_spin', 'loto_reset', 'loto_auto_spin', 'loto_interval', 'setTheme', 'loto_dance'];
 
 // The channel name (title + what the voice says) survives restarts in settings.json next to this file
 const SETTINGS_FILE = path.join(process.cwd(), 'settings.json');

@@ -40,6 +40,8 @@ export interface LotoScreenConfig {
   cycleIntervalSeconds: number;
 }
 
+export type LotoDanceStyle = 'fan' | 'hipshake' | 'disco' | 'robot' | 'troupe';
+
 export interface LotoState {
   roundId: number;
   calledNumbers: number[];
@@ -56,6 +58,9 @@ export interface LotoState {
   showSpotlightTicket: boolean;
   autoShowOnWaitingKin: boolean;
   currentPrize: string;
+  danceStyle: LotoDanceStyle | null;
+  danceDonorName?: string;
+  danceGiftName?: string;
 }
 
 // Generate a authentic Vietnamese Lô Tô card: 3 rows, 9 columns.
@@ -134,6 +139,10 @@ class LotoEngineService {
   private lastWinner: LotoWinner | null = null;
   private historyWinners: LotoWinner[] = [];
   private currentPrize: string = 'Thẻ cào điện thoại 50.000đ';
+  private danceStyle: LotoDanceStyle | null = null;
+  private danceDonorName?: string;
+  private danceGiftName?: string;
+  private danceTimer: ReturnType<typeof setTimeout> | null = null;
 
   private listeners: Set<(state: LotoState) => void> = new Set();
   private onNumberCalledCallbacks: Set<(num: number, chant: string, spokenText: string) => void> = new Set();
@@ -286,6 +295,9 @@ class LotoEngineService {
           currentChant: this.currentChant,
           isSpinning: this.isSpinning,
           lastWinner: this.lastWinner,
+          danceStyle: this.danceStyle,
+          danceDonorName: this.danceDonorName,
+          danceGiftName: this.danceGiftName,
         }),
       }).catch(() => {});
     }, 100);
@@ -309,6 +321,36 @@ class LotoEngineService {
     this.onWinCallbacks.forEach((cb) => cb(winner));
   }
 
+  public triggerDance(
+    style: LotoDanceStyle | null,
+    durationMs: number = 8000,
+    donorName?: string,
+    giftName?: string
+  ) {
+    if (this.danceTimer) clearTimeout(this.danceTimer);
+    this.danceStyle = style;
+    this.danceDonorName = donorName;
+    this.danceGiftName = giftName;
+    this.notify();
+
+    if (style && durationMs > 0) {
+      this.danceTimer = setTimeout(() => {
+        this.danceStyle = null;
+        this.danceDonorName = undefined;
+        this.danceGiftName = undefined;
+        this.notify();
+      }, durationMs);
+    }
+  }
+
+  public stopDance() {
+    if (this.danceTimer) clearTimeout(this.danceTimer);
+    this.danceStyle = null;
+    this.danceDonorName = undefined;
+    this.danceGiftName = undefined;
+    this.notify();
+  }
+
   public getState(): LotoState {
     return {
       roundId: this.roundId,
@@ -326,6 +368,9 @@ class LotoEngineService {
       showSpotlightTicket: this.showSpotlightTicket,
       autoShowOnWaitingKin: this.autoShowOnWaitingKin,
       currentPrize: this.currentPrize,
+      danceStyle: this.danceStyle,
+      danceDonorName: this.danceDonorName,
+      danceGiftName: this.danceGiftName,
     };
   }
 

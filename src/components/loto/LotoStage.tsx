@@ -4,6 +4,7 @@ import { LotoWinnerCelebration } from './LotoWinnerCelebration';
 import { LotoFairCrowd } from './LotoFairCrowd';
 import { LotoPlayerTicketModal } from './LotoPlayerTicketModal';
 import { LotoGiftPerksModal } from './LotoGiftPerksModal';
+import { LotoStageDancer } from './LotoStageDancer';
 import { lotoEngine, LotoState, LotoTicket } from '../../services/loto/lotoEngine';
 import { soundEngine, formatUsernameForTts } from '../../services/soundEngine';
 import { GiftNotificationBanner } from '../GiftNotificationBanner';
@@ -48,18 +49,23 @@ export const LotoStage: React.FC<LotoStageProps> = ({
     let tier: 'rose' | 'icecream' | 'crown' | 'rocket' = 'rose';
     let duration = 3000;
 
+    const donor = currentGift.displayName || currentGift.username;
     if (d >= 1000 || name.includes('tên lửa') || name.includes('rocket') || name.includes('sư tử') || name.includes('pháo hoa')) {
       tier = 'rocket';
       duration = 11000;
+      lotoEngine.triggerDance('troupe', 11000, donor, currentGift.giftName);
     } else if (d >= 90 || name.includes('vương miện') || name.includes('crown') || name.includes('tim') || name.includes('heart')) {
       tier = 'crown';
       duration = 8000;
+      lotoEngine.triggerDance('disco', 8000, donor, currentGift.giftName);
     } else if (d >= 10 || name.includes('kem') || name.includes('ice') || name.includes('donut') || name.includes('bánh')) {
       tier = 'icecream';
       duration = 5000;
+      lotoEngine.triggerDance('hipshake', 5000, donor, currentGift.giftName);
     } else {
       tier = 'rose';
-      duration = 3000;
+      duration = 3500;
+      lotoEngine.triggerDance('fan', 3500, donor, currentGift.giftName);
     }
 
     setActiveDanceTier(tier);
@@ -77,6 +83,15 @@ export const LotoStage: React.FC<LotoStageProps> = ({
       .then((r) => r.json())
       .then((d) => setNetworkInfo(d))
       .catch(() => {});
+
+    // Allow testing or previewing dancers via URL param (e.g. ?dance=fan or ?dance=disco)
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlDance = params.get('dance') as any;
+      if (urlDance && ['fan', 'hipshake', 'disco', 'robot', 'troupe'].includes(urlDance)) {
+        lotoEngine.triggerDance(urlDance, 60000, 'Đại Gia TikTok', 'Vũ Điệu Hội Chợ');
+      }
+    }
   }, []);
 
   const handleCloseWinner = React.useCallback(() => {
@@ -271,10 +286,22 @@ export const LotoStage: React.FC<LotoStageProps> = ({
           <LotoCage
             isSpinning={gameState.isSpinning}
             currentNumber={gameState.currentNumber}
-            currentChant={gameState.currentChant}
+            currentChant={
+              gameState.danceStyle
+                ? `⭐ ${gameState.danceDonorName || 'Khán giả'} tặng ${gameState.danceGiftName || 'quà'} - Cả hội trường cùng quẩy! 🎵`
+                : gameState.currentChant
+            }
           />
         </div>
       </div>
+
+      {/* 3.5. MÔ HÌNH VŨ CÔNG BIỂU DIỄN VŨ ĐIỆU TRÊN SÂN KHẤU (KHI CÓ QUÀ TẶNG HOẶC STREAMER CHỌN) */}
+      <LotoStageDancer
+        danceStyle={gameState.danceStyle}
+        donorName={gameState.danceDonorName}
+        giftName={gameState.danceGiftName}
+        onClose={() => lotoEngine.stopDance()}
+      />
 
       {/* 4. ĐÁM ĐÔNG KHÁN GIẢ HỘI CHỢ NGỒI DÒ VÉ TRÊN SÂN HỘI TRƯỜNG (HOÀN TOÀN KHÔNG BỊ CHE KHUẤT) */}
       <div className="absolute inset-0 z-20 pointer-events-none">
