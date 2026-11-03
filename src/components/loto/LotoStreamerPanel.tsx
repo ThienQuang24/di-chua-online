@@ -282,7 +282,9 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
         const data = await res.json();
         if (data.success && data.url) {
           setDanceVideoUrl(data.url);
-          setDanceUploadMsg(`✓ Đã nạp video: ${file.name}`);
+          setDanceUploadMsg(`✓ Đã nạp & đang chiếu: ${file.name}`);
+          // Tự động kích hoạt nhảy ngay lập tức trên sân khấu!
+          handleTriggerDance('fan', data.url, danceIsGreenScreen);
         } else {
           setDanceUploadMsg(`Lỗi tải video: ${data.error || 'Thất bại'}`);
         }
@@ -295,14 +297,23 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
     }
   };
 
-  const handleTriggerDance = (style: 'fan' | 'hipshake' | 'disco' | 'robot' | 'troupe') => {
+  const handleTriggerDance = (
+    style: 'fan' | 'hipshake' | 'disco' | 'robot' | 'troupe',
+    overrideVideoUrl?: string,
+    overrideIsGreen?: boolean
+  ) => {
+    const vUrl = overrideVideoUrl !== undefined ? overrideVideoUrl : danceVideoUrl;
+    const isGreen = overrideIsGreen !== undefined ? overrideIsGreen : danceIsGreenScreen;
+    if (overrideVideoUrl !== undefined) setDanceVideoUrl(overrideVideoUrl);
+    if (overrideIsGreen !== undefined) setDanceIsGreenScreen(isGreen);
+
     lotoEngine.triggerDance(
       style,
-      10000,
-      undefined,
-      undefined,
-      danceVideoUrl || undefined,
-      danceIsGreenScreen
+      30000,
+      'Streamer',
+      'Vũ Điệu Biểu Diễn',
+      vUrl || undefined,
+      isGreen
     );
     fetch('/api/control', {
       method: 'POST',
@@ -311,9 +322,11 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
         action: 'loto_dance',
         text: style,
         danceStyle: style,
-        danceDuration: 10000,
-        customVideoUrl: danceVideoUrl || undefined,
-        isGreenScreen: danceIsGreenScreen,
+        danceDuration: 30000,
+        danceDonorName: 'Streamer',
+        danceGiftName: 'Vũ Điệu Biểu Diễn',
+        customVideoUrl: vUrl || undefined,
+        isGreenScreen: isGreen,
       }),
     }).catch(() => {});
 
@@ -321,10 +334,10 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
       fan: 'rose',
       hipshake: 'icecream',
       disco: 'crown',
-      robot: 'crown',
+      robot: 'icecream',
       troupe: 'rocket',
     };
-    soundEngine.playLotoGiftDanceBeat(tierMap[style]);
+    soundEngine.playLotoGiftDanceBeat(tierMap[style] || 'rose');
   };
 
   const handleStopDance = () => {
@@ -1367,16 +1380,13 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
             </button>
           </div>
 
-          {/* Quick preset selector */}
+          {/* Quick preset selector - Bấm là nhảy ngay lập tức trên sân khấu! */}
           <div className="flex flex-wrap items-center gap-1.5">
             <button
-              onClick={() => {
-                setDanceVideoUrl('/assets/loto/dancers/dance-fan-sample.webm');
-                setDanceIsGreenScreen(false);
-              }}
+              onClick={() => handleTriggerDance('fan', '/assets/loto/dancers/dance-fan-sample.webm', false)}
               className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                danceVideoUrl === '/assets/loto/dancers/dance-fan-sample.webm'
-                  ? 'bg-amber-500 text-slate-950 border-amber-300 shadow'
+                danceVideoUrl === '/assets/loto/dancers/dance-fan-sample.webm' && gameState.danceStyle
+                  ? 'bg-amber-500 text-slate-950 border-amber-300 shadow scale-105'
                   : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-amber-400'
               }`}
             >
@@ -1384,13 +1394,10 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
             </button>
 
             <button
-              onClick={() => {
-                setDanceVideoUrl('/assets/loto/dancers/dance-disco-sample.webm');
-                setDanceIsGreenScreen(false);
-              }}
+              onClick={() => handleTriggerDance('disco', '/assets/loto/dancers/dance-disco-sample.webm', false)}
               className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                danceVideoUrl === '/assets/loto/dancers/dance-disco-sample.webm'
-                  ? 'bg-cyan-500 text-slate-950 border-cyan-300 shadow'
+                danceVideoUrl === '/assets/loto/dancers/dance-disco-sample.webm' && gameState.danceStyle
+                  ? 'bg-cyan-500 text-slate-950 border-cyan-300 shadow scale-105'
                   : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-cyan-400'
               }`}
             >
@@ -1398,13 +1405,10 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
             </button>
 
             <button
-              onClick={() => {
-                setDanceVideoUrl('/assets/loto/dancers/dance-fan-sample.mp4');
-                setDanceIsGreenScreen(true);
-              }}
+              onClick={() => handleTriggerDance('fan', '/assets/loto/dancers/dance-fan-sample.mp4', true)}
               className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                danceVideoUrl.endsWith('.mp4') && danceIsGreenScreen
-                  ? 'bg-emerald-500 text-slate-950 border-emerald-300 shadow'
+                danceVideoUrl.endsWith('.mp4') && danceIsGreenScreen && gameState.danceStyle
+                  ? 'bg-emerald-500 text-slate-950 border-emerald-300 shadow scale-105'
                   : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-emerald-400'
               }`}
             >
@@ -1412,13 +1416,10 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
             </button>
 
             <button
-              onClick={() => {
-                setDanceVideoUrl('');
-                setDanceIsGreenScreen(false);
-              }}
+              onClick={() => handleTriggerDance('fan', '', false)}
               className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                !danceVideoUrl
-                  ? 'bg-purple-600 text-white border-purple-300 shadow'
+                !danceVideoUrl && gameState.danceStyle
+                  ? 'bg-purple-600 text-white border-purple-300 shadow scale-105'
                   : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-purple-400'
               }`}
             >

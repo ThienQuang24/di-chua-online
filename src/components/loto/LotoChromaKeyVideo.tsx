@@ -27,7 +27,7 @@ export const LotoChromaKeyVideo: React.FC<LotoChromaKeyVideoProps> = ({
   const [useFallback, setUseFallback] = useState(!videoSrc);
   const animFrameRef = useRef<number | null>(null);
 
-  const isWebmAlpha = videoSrc?.endsWith('.webm');
+  const isWebmAlpha = videoSrc ? videoSrc.toLowerCase().includes('.webm') : false;
 
   // Parse chroma key color to RGB
   const keyRgb = React.useMemo(() => {
@@ -44,6 +44,7 @@ export const LotoChromaKeyVideo: React.FC<LotoChromaKeyVideoProps> = ({
   useEffect(() => {
     if (!videoSrc) {
       setUseFallback(true);
+      setVideoLoaded(false);
       return;
     }
 
@@ -54,25 +55,30 @@ export const LotoChromaKeyVideo: React.FC<LotoChromaKeyVideoProps> = ({
     if (!video) return;
 
     video.src = videoSrc;
+    video.muted = true;
+    video.playsInline = true;
+    video.loop = true;
     video.load();
 
-    const handleCanPlay = () => {
+    const handleLoadedData = () => {
       setVideoLoaded(true);
-      video.play().catch(() => {
-        // Autoplay policy fallback
+      video.play().catch((e) => {
+        console.warn('[ChromaKeyVideo] Autoplay blocked, will play on interaction', e);
       });
     };
 
-    const handleError = () => {
-      console.warn(`[ChromaKeyVideo] Video failed to load: ${videoSrc}, falling back to image`);
+    const handleError = (e: any) => {
+      console.warn(`[ChromaKeyVideo] Video failed to load: ${videoSrc}`, e);
       setUseFallback(true);
     };
 
-    video.addEventListener('canplay', handleCanPlay);
+    video.addEventListener('loadeddata', handleLoadedData);
+    video.addEventListener('canplay', handleLoadedData);
     video.addEventListener('error', handleError);
 
     return () => {
-      video.removeEventListener('canplay', handleCanPlay);
+      video.removeEventListener('loadeddata', handleLoadedData);
+      video.removeEventListener('canplay', handleLoadedData);
       video.removeEventListener('error', handleError);
       if (animFrameRef.current) {
         cancelAnimationFrame(animFrameRef.current);
@@ -115,7 +121,7 @@ export const LotoChromaKeyVideo: React.FC<LotoChromaKeyVideoProps> = ({
         const targetG = keyRgb.g;
         const targetB = keyRgb.b;
 
-        const tolDist = (tolerance / 100) * 441.67; // max distance sqrt(255^2 * 3)
+        const tolDist = (tolerance / 100) * 441.67;
         const smoothDist = (smoothness / 100) * 100;
 
         for (let i = 0; i < len; i += 4) {
@@ -123,16 +129,14 @@ export const LotoChromaKeyVideo: React.FC<LotoChromaKeyVideoProps> = ({
           const g = data[i + 1];
           const b = data[i + 2];
 
-          // Euclidean distance in RGB color space
           const dr = r - targetR;
           const dg = g - targetG;
           const db = b - targetB;
           const dist = Math.sqrt(dr * dr + dg * dg + db * db);
 
           if (dist < tolDist) {
-            data[i + 3] = 0; // Completely transparent
+            data[i + 3] = 0; // Transparent
           } else if (dist < tolDist + smoothDist) {
-            // Feather edge
             const alpha = ((dist - tolDist) / smoothDist) * 255;
             data[i + 3] = Math.min(data[i + 3], alpha);
 
@@ -158,9 +162,9 @@ export const LotoChromaKeyVideo: React.FC<LotoChromaKeyVideoProps> = ({
   }, [videoLoaded, useFallback, isWebmAlpha, isGreenScreen, keyRgb, tolerance, smoothness]);
 
   return (
-    <div className={`relative flex items-center justify-center overflow-hidden ${className}`}>
-      {/* Hidden Video Source */}
-      {videoSrc && (
+    <div className={`relative flex items-center justify-center ${className}`}>
+      {/* Video element */}
+      {videoSrc && !useFallback && (
         <video
           ref={videoRef}
           crossOrigin="anonymous"
@@ -169,22 +173,26 @@ export const LotoChromaKeyVideo: React.FC<LotoChromaKeyVideoProps> = ({
           loop
           autoPlay
           className={
-            isWebmAlpha && videoLoaded && !useFallback
-              ? 'w-full h-full object-contain filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.85)]'
-              : 'hidden'
+            isWebmAlpha
+              ? `w-full h-full object-contain filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.85)] ${
+                  videoLoaded ? 'block' : 'hidden'
+                }`
+              : 'absolute -top-[9999px] -left-[9999px] w-[300px] h-[400px] opacity-0 pointer-events-none'
           }
         />
       )}
 
       {/* Chroma Key Canvas (Active for Green Screen MP4) */}
-      {!isWebmAlpha && videoLoaded && !useFallback && isGreenScreen && (
+      {!isWebmAlpha && !useFallback && isGreenScreen && (
         <canvas
           ref={canvasRef}
-          className="w-full h-full object-contain filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.85)]"
+          className={`w-full h-full object-contain filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.85)] ${
+            videoLoaded ? 'block' : 'hidden'
+          }`}
         />
       )}
 
-      {/* Fallback Image or Loading Placeholder */}
+      {/* Fallback Image (always visible until video is confirmed playing) */}
       {(useFallback || !videoLoaded) && (
         <img
           src={fallbackImage}

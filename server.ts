@@ -1025,6 +1025,16 @@ app.post('/api/control', (req, res) => {
       console.error('Could not save settings.json:', err);
     }
   }
+  if (action === 'loto_dance') {
+    const isStop = payload.text === 'stop' || payload.danceStyle === 'stop';
+    serverLotoState.danceStyle = isStop ? null : (payload.danceStyle || payload.text || 'fan');
+    serverLotoState.danceDonorName = isStop ? undefined : payload.danceDonorName;
+    serverLotoState.danceGiftName = isStop ? undefined : payload.danceGiftName;
+    (serverLotoState as any).customVideoUrl = isStop ? undefined : payload.customVideoUrl;
+    (serverLotoState as any).isGreenScreen = isStop ? undefined : payload.isGreenScreen;
+    broadcastSSE('loto_update', serverLotoState);
+  }
+
   broadcastSSE('control', payload);
   return res.json({ success: true, stages: sseClients.length });
 });

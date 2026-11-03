@@ -603,7 +603,7 @@ function MainApp() {
   };
 
   // Commands sent from the dashboard; only the live stage page (?view=stage) acts, so sound never doubles
-  const handleControl = (action: string, text?: string) => {
+  const handleControl = (action: string, text?: string, extra?: any) => {
     // The channel name applies on every page (dashboard field and the live stage's title and voice)
     if (action === 'setName' && text) {
       setConfig((prev) => ({ ...prev, channelName: text }));
@@ -617,8 +617,18 @@ function MainApp() {
     if (action === 'loto_auto_spin') lotoEngine.setAutoSpin(text === '1' || text === 'true');
     if (action === 'loto_interval' && Number(text) > 0) lotoEngine.setSpinInterval(Number(text));
     if (action === 'loto_dance') {
-      if (text && text !== 'stop') {
-        lotoEngine.triggerDance(text as any, 10000);
+      const isStop = text === 'stop' || extra?.danceStyle === 'stop';
+      if (!isStop) {
+        const style = (extra?.danceStyle || text || 'fan') as any;
+        const dur = extra?.danceDuration || 15000;
+        lotoEngine.triggerDance(
+          style,
+          dur,
+          extra?.danceDonorName,
+          extra?.danceGiftName,
+          extra?.customVideoUrl,
+          extra?.isGreenScreen
+        );
       } else {
         lotoEngine.stopDance();
       }
@@ -757,7 +767,7 @@ function MainApp() {
       eventSource.addEventListener('control', (e) => {
         try {
           const data = JSON.parse(e.data);
-          handlersRef.current.handleControl(data.action, data.text);
+          handlersRef.current.handleControl(data.action, data.text, data);
         } catch (err) {
           console.error('SSE control parse error', err);
         }
@@ -768,7 +778,14 @@ function MainApp() {
           const data = JSON.parse(e.data);
           if (data.danceStyle !== undefined) {
             if (data.danceStyle) {
-              lotoEngine.triggerDance(data.danceStyle, 10000, data.danceDonorName, data.danceGiftName);
+              lotoEngine.triggerDance(
+                data.danceStyle,
+                15000,
+                data.danceDonorName,
+                data.danceGiftName,
+                data.customVideoUrl,
+                data.isGreenScreen
+              );
             } else {
               lotoEngine.stopDance();
             }
