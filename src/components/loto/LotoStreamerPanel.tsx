@@ -48,7 +48,7 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
   const [cloneMsg, setCloneMsg] = useState('');
 
   // Video Dancer & AI Motion State
-  const [danceVideoUrl, setDanceVideoUrl] = useState<string>('/assets/loto/dancers/dance-fan-sample.webm');
+  const [danceVideoUrl, setDanceVideoUrl] = useState<string>('/assets/loto/dancers/dance-anime.webm');
   const [danceIsGreenScreen, setDanceIsGreenScreen] = useState<boolean>(false);
   const [danceUploadMsg, setDanceUploadMsg] = useState<string>('');
   const [isUploadingDance, setIsUploadingDance] = useState<boolean>(false);
@@ -298,7 +298,7 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
   };
 
   const handleTriggerDance = (
-    style: 'fan' | 'hipshake' | 'disco' | 'robot' | 'troupe',
+    style: 'fan' | 'hipshake' | 'disco' | 'robot' | 'troupe' | 'baga' | 'vica' | 'anime' | 'stickmin',
     overrideVideoUrl?: string,
     overrideIsGreen?: boolean
   ) => {
@@ -334,7 +334,8 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
       fan: 'rose',
       hipshake: 'icecream',
       disco: 'crown',
-      robot: 'icecream',
+      robot: 'crown',
+      baga: 'rocket',
       troupe: 'rocket',
     };
     soundEngine.playLotoGiftDanceBeat(tierMap[style] || 'rose');
@@ -1293,8 +1294,79 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
           )}
         </div>
 
-        {/* 5 Nút Chọn Kiểu Nhảy Trực Tiếp */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        {/* Nút Chọn Kiểu Nhảy Trực Tiếp (Hoạt Hình Thật + Mô Hình 3D Skeletal 60fps) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+          {/* 1. ANIME CHIKA DANCE */}
+          <button
+            onClick={() => handleTriggerDance('anime', '/assets/loto/dancers/dance-anime.webm', false)}
+            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
+              gameState.danceStyle === 'anime'
+                ? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white border-pink-200 scale-105 shadow-[0_0_20px_rgba(244,63,94,0.8)] ring-2 ring-pink-400'
+                : 'bg-pink-950/40 border-pink-500/50 text-pink-200 hover:bg-pink-900/50'
+            }`}
+          >
+            <span className="text-xl animate-bounce">🎀</span>
+            <span className="text-[10px] font-black">Anime Chika (Nhảy Thật)</span>
+            <span className="text-[8px] text-pink-200 font-bold">✨ Hoạt hình uốn lượn</span>
+          </button>
+
+          {/* 2. STICKMAN DANCE */}
+          <button
+            onClick={() => handleTriggerDance('stickmin', '/assets/loto/dancers/dance-stickmin.webm', false)}
+            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
+              gameState.danceStyle === 'stickmin'
+                ? 'bg-gradient-to-r from-cyan-500 to-emerald-400 text-slate-950 border-cyan-200 scale-105 shadow-[0_0_20px_rgba(6,182,212,0.8)] ring-2 ring-cyan-400'
+                : 'bg-cyan-950/40 border-cyan-500/50 text-cyan-200 hover:bg-cyan-900/50'
+            }`}
+          >
+            <span className="text-xl animate-bounce">🕺</span>
+            <span className="text-[10px] font-black">Stickman Quẩy Sung</span>
+            <span className="text-[8px] text-cyan-200 font-bold">🔥 Bung nóc hội trường</span>
+          </button>
+
+          {/* 3. ROBOT 3D SKELETAL */}
+          <button
+            onClick={() => handleTriggerDance('robot', '', false)}
+            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
+              gameState.danceStyle === 'robot'
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 border-emerald-200 scale-105 shadow-[0_0_20px_rgba(16,185,129,0.8)] ring-2 ring-emerald-400'
+                : 'bg-emerald-950/50 border-emerald-400/60 text-emerald-300 hover:bg-emerald-900/60'
+            }`}
+          >
+            <span className="text-xl animate-bounce">🤖</span>
+            <span className="text-[10px] font-black">Robot 3D Nhảy Thật</span>
+            <span className="text-[8px] text-emerald-200 font-bold">⭐ Xoay khớp xương 60fps</span>
+          </button>
+
+          {/* 4. BÀ GÀ 3D */}
+          <button
+            onClick={() => handleTriggerDance('baga', '', false)}
+            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
+              gameState.danceStyle === 'baga'
+                ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white border-orange-200 scale-105 shadow-[0_0_20px_rgba(249,115,22,0.8)] ring-2 ring-orange-400'
+                : 'bg-orange-950/50 border-orange-400/60 text-orange-300 hover:bg-orange-900/60'
+            }`}
+          >
+            <span className="text-xl">🐔</span>
+            <span className="text-[10px] font-black">Thầy Ba Gà 3D</span>
+            <span className="text-[8px] text-orange-200 font-bold">⭐ Quẩy & Vẫy Tay 3D</span>
+          </button>
+
+          {/* 5. VI CÁ 3D */}
+          <button
+            onClick={() => handleTriggerDance('vica', '', false)}
+            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
+              gameState.danceStyle === 'vica'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-500 text-white border-blue-200 scale-105 shadow-[0_0_20px_rgba(59,130,246,0.8)] ring-2 ring-blue-400'
+                : 'bg-blue-950/50 border-blue-400/60 text-blue-300 hover:bg-blue-900/60'
+            }`}
+          >
+            <span className="text-xl">🕶️</span>
+            <span className="text-[10px] font-black">Anh Vi Cá 3D</span>
+            <span className="text-[8px] text-blue-200 font-bold">⭐ Vẫy Tay Chào Khán Giả</span>
+          </button>
+
+          {/* 6. MÚA QUẠT */}
           <button
             onClick={() => handleTriggerDance('fan')}
             className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
@@ -1305,9 +1377,10 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
           >
             <span className="text-xl">🪭</span>
             <span className="text-[10px] font-black">Múa Quạt TikTok</span>
-            <span className="text-[8px] opacity-80">Tay dẻo quẹo</span>
+            <span className="text-[8px] opacity-80">Vũ điệu cuốn hút</span>
           </button>
 
+          {/* 7. LẮC HÔNG */}
           <button
             onClick={() => handleTriggerDance('hipshake')}
             className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
@@ -1321,6 +1394,7 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
             <span className="text-[8px] opacity-80">Cháy cả phòng</span>
           </button>
 
+          {/* 8. DISCO */}
           <button
             onClick={() => handleTriggerDance('disco')}
             className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
@@ -1334,30 +1408,18 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
             <span className="text-[8px] opacity-80">Chỉ tay lên nóc</span>
           </button>
 
-          <button
-            onClick={() => handleTriggerDance('robot')}
-            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
-              gameState.danceStyle === 'robot'
-                ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white border-emerald-200 scale-105 shadow-[0_0_15px_rgba(16,185,129,0.6)]'
-                : 'bg-slate-950/70 border-emerald-500/40 text-emerald-200 hover:border-emerald-400'
-            }`}
-          >
-            <span className="text-xl">🤖</span>
-            <span className="text-[10px] font-black">Robot Hiphop</span>
-            <span className="text-[8px] opacity-80">Pop & Lock cực ngầu</span>
-          </button>
-
+          {/* 9. VŨ ĐOÀN ĐỒNG DIỄN */}
           <button
             onClick={() => handleTriggerDance('troupe')}
-            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
+            className={`p-2 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 col-span-2 sm:col-span-1 md:col-span-2 ${
               gameState.danceStyle === 'troupe'
                 ? 'bg-gradient-to-r from-red-600 to-yellow-500 text-white border-yellow-200 scale-105 shadow-[0_0_15px_rgba(239,68,68,0.8)]'
                 : 'bg-slate-950/70 border-red-500/40 text-amber-200 hover:border-yellow-400'
             }`}
           >
             <span className="text-xl">👯‍♀️</span>
-            <span className="text-[10px] font-black">Vũ Đoàn Đồng Diễn</span>
-            <span className="text-[8px] opacity-80">2 Bên sân khấu</span>
+            <span className="text-[10px] font-black">Vũ Đoàn Đồng Diễn Song Ca</span>
+            <span className="text-[8px] opacity-80">2 Vũ công chuyển động thật 2 bên sân khấu</span>
           </button>
         </div>
 
@@ -1383,47 +1445,47 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
           {/* Quick preset selector - Bấm là nhảy ngay lập tức trên sân khấu! */}
           <div className="flex flex-wrap items-center gap-1.5">
             <button
-              onClick={() => handleTriggerDance('fan', '/assets/loto/dancers/dance-fan-sample.webm', false)}
+              onClick={() => handleTriggerDance('anime', '/assets/loto/dancers/dance-anime.webm', false)}
               className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                danceVideoUrl === '/assets/loto/dancers/dance-fan-sample.webm' && gameState.danceStyle
-                  ? 'bg-amber-500 text-slate-950 border-amber-300 shadow scale-105'
-                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-amber-400'
+                danceVideoUrl === '/assets/loto/dancers/dance-anime.webm' && gameState.danceStyle === 'anime'
+                  ? 'bg-pink-500 text-white border-pink-300 shadow scale-105'
+                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-pink-400'
               }`}
             >
-              🪭 Video Mẫu Múa Quạt (WebM)
+              🎀 Video Hoạt Hình Anime (WebM Trong Suốt)
             </button>
 
             <button
-              onClick={() => handleTriggerDance('disco', '/assets/loto/dancers/dance-disco-sample.webm', false)}
+              onClick={() => handleTriggerDance('stickmin', '/assets/loto/dancers/dance-stickmin.webm', false)}
               className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                danceVideoUrl === '/assets/loto/dancers/dance-disco-sample.webm' && gameState.danceStyle
+                danceVideoUrl === '/assets/loto/dancers/dance-stickmin.webm' && gameState.danceStyle === 'stickmin'
                   ? 'bg-cyan-500 text-slate-950 border-cyan-300 shadow scale-105'
                   : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-cyan-400'
               }`}
             >
-              🕺 Video Mẫu Disco (WebM)
+              🕺 Video Stickman (WebM Trong Suốt)
             </button>
 
             <button
-              onClick={() => handleTriggerDance('fan', '/assets/loto/dancers/dance-fan-sample.mp4', true)}
+              onClick={() => handleTriggerDance('anime', '/assets/loto/dancers/dance-anime.mp4', true)}
               className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
                 danceVideoUrl.endsWith('.mp4') && danceIsGreenScreen && gameState.danceStyle
                   ? 'bg-emerald-500 text-slate-950 border-emerald-300 shadow scale-105'
                   : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-emerald-400'
               }`}
             >
-              🟢 Video Phông Xanh (Chroma Key)
+              🟢 Video Phông Xanh (HTML5 Canvas Chroma Key)
             </button>
 
             <button
-              onClick={() => handleTriggerDance('fan', '', false)}
+              onClick={() => handleTriggerDance('robot', '', false)}
               className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                !danceVideoUrl && gameState.danceStyle
-                  ? 'bg-purple-600 text-white border-purple-300 shadow scale-105'
-                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-purple-400'
+                gameState.danceStyle === 'robot'
+                  ? 'bg-emerald-500 text-slate-950 border-emerald-300 shadow scale-105'
+                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-emerald-400'
               }`}
             >
-              🎨 Mô hình 3D (Không dùng video)
+              🤖 Mô hình Robot 3D (Three.js Armature)
             </button>
           </div>
 

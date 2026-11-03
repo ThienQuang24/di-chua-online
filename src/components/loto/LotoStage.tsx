@@ -31,7 +31,16 @@ export const LotoStage: React.FC<LotoStageProps> = ({
   isBgmPlaying = true,
   onToggleBgm,
 }) => {
-  const [gameState, setGameState] = useState<LotoState>(lotoEngine.getState());
+  const [gameState, setGameState] = useState<LotoState>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlDance = params.get('dance') as any;
+      if (urlDance && ['fan', 'hipshake', 'disco', 'robot', 'troupe', 'baga', 'vica', 'anime', 'stickmin'].includes(urlDance)) {
+        lotoEngine.triggerDance(urlDance, 60000, 'Đại Gia TikTok', 'Vũ Điệu Hội Chợ');
+      }
+    }
+    return lotoEngine.getState();
+  });
   const [tickets, setTickets] = useState<LotoTicket[]>(lotoEngine.getTickets());
   const [raining, setRaining] = useState(false);
   const [showTicket, setShowTicket] = useState(false);
@@ -88,7 +97,7 @@ export const LotoStage: React.FC<LotoStageProps> = ({
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const urlDance = params.get('dance') as any;
-      if (urlDance && ['fan', 'hipshake', 'disco', 'robot', 'troupe'].includes(urlDance)) {
+      if (urlDance && ['fan', 'hipshake', 'disco', 'robot', 'troupe', 'baga', 'vica', 'anime', 'stickmin'].includes(urlDance)) {
         lotoEngine.triggerDance(urlDance, 60000, 'Đại Gia TikTok', 'Vũ Điệu Hội Chợ');
       }
     }

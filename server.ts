@@ -225,6 +225,7 @@ app.get('/api/tiktok/events', (req, res) => {
   if (lastRateControl) res.write(`event: control\ndata: ${JSON.stringify(lastRateControl)}\n\n`);
 
   if (lastNameControl) res.write(`event: control\ndata: ${JSON.stringify(lastNameControl)}\n\n`);
+  if (serverLotoState.danceStyle) res.write(`event: loto_update\ndata: ${JSON.stringify(serverLotoState)}\n\n`);
   sseClients.push(res);
 
   // Keep-alive heartbeat every 20s

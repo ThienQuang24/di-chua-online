@@ -1,8 +1,9 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LotoChromaKeyVideo } from './LotoChromaKeyVideo';
+import { LotoThreeDancer } from './LotoThreeDancer';
 
-export type LotoDanceStyle = 'fan' | 'hipshake' | 'disco' | 'robot' | 'troupe';
+export type LotoDanceStyle = 'fan' | 'hipshake' | 'disco' | 'robot' | 'troupe' | 'baga';
 
 interface LotoStageDancerProps {
   danceStyle: LotoDanceStyle | null;
@@ -24,19 +25,38 @@ const DANCE_CONFIGS: Record<
     video1?: string;
     model2?: string;
     video2?: string;
+    model3d?: string;
+    anim3d?: string;
     isGreenScreen?: boolean;
     tagline: string;
     glowColor: string;
   }
 > = {
+  anime: {
+    title: 'Vũ Điệu Hoạt Hình Anime (Chika Dance)',
+    icon: '🎀',
+    animClass: 'animate-dance-hipshake',
+    model1: '/assets/loto/dancers/dancer-female-flair.png',
+    video1: '/assets/loto/dancers/dance-anime.webm',
+    tagline: 'Nhân vật hoạt hình nhảy múa, vẫy tay uốn lượn cực đáng yêu!',
+    glowColor: 'from-pink-500 via-rose-400 to-purple-500',
+  },
+  stickmin: {
+    title: 'Vũ Điệu Stickman Quẩy Đảo Lửa',
+    icon: '🕺',
+    animClass: 'animate-dance-disco',
+    model1: '/assets/loto/dancers/dancer-hiphop.png',
+    video1: '/assets/loto/dancers/dance-stickmin.webm',
+    tagline: 'Stickman nhảy tưng bừng đảo lửa bung nóc hội trường!',
+    glowColor: 'from-cyan-400 via-emerald-400 to-yellow-400',
+  },
   fan: {
     title: 'Vũ Điệu Múa Quạt TikTok',
     icon: '🪭',
     animClass: 'animate-dance-fan',
     model1: '/assets/loto/dancers/dancer-fan.png',
-    video1: '/assets/loto/dancers/dance-fan-sample.webm',
-    model2: '/assets/loto/patron-2.png',
-    tagline: 'Múa quạt dẻo quẹo theo nhịp beat cực sung!',
+    video1: '/assets/loto/dancers/dance-anime.webm',
+    tagline: 'Múa dẻo quẹo theo nhịp beat cực sung cùng idol!',
     glowColor: 'from-amber-400 via-rose-500 to-yellow-300',
   },
   hipshake: {
@@ -44,7 +64,7 @@ const DANCE_CONFIGS: Record<
     icon: '💃',
     animClass: 'animate-dance-hipshake',
     model1: '/assets/loto/dancers/dancer-female-flair.png',
-    model2: '/assets/nhau/patron-female-1.png',
+    video1: '/assets/loto/dancers/dance-anime.webm',
     tagline: 'Lắc hông bốc lửa khuấy động cả khán phòng!',
     glowColor: 'from-pink-500 via-purple-500 to-rose-400',
   },
@@ -53,28 +73,48 @@ const DANCE_CONFIGS: Record<
     icon: '🕺',
     animClass: 'animate-dance-disco',
     model1: '/assets/loto/dancers/dancer-disco.png',
-    video1: '/assets/loto/dancers/dance-disco-sample.webm',
-    model2: '/assets/nhau/patron-1.png',
+    video1: '/assets/loto/dancers/dance-stickmin.webm',
     tagline: 'Chỉ tay lên nóc nhà - Bắt trọn từng nhịp bass!',
     glowColor: 'from-cyan-400 via-blue-500 to-purple-500',
   },
   robot: {
-    title: 'Vũ Điệu Robot Hiphop Pop-Lock',
+    title: 'Vũ Điệu Robot 3D Nhảy Thật (Dance 60fps)',
     icon: '🤖',
     animClass: 'animate-dance-robot',
     model1: '/assets/loto/dancers/dancer-hiphop.png',
-    model2: '/assets/loto/patron-1.png',
-    tagline: 'Giật cơ bắp pop & lock cực chất đường phố!',
+    model3d: '/assets/loto/dancers/robot-expressive.glb',
+    anim3d: 'Dance',
+    tagline: 'Robot 3D nhảy uốn lượn, tay chân cử động 100%!',
     glowColor: 'from-emerald-400 via-teal-500 to-lime-400',
+  },
+  baga: {
+    title: 'Vũ Điệu Thầy Ba Gà 3D',
+    icon: '🐔',
+    animClass: 'animate-dance-disco',
+    model1: '/assets/nhau/patron-uncle-1.png',
+    model3d: '/assets/loto/dancers/ba-ga.glb',
+    anim3d: 'CharacterArmature|Interact',
+    tagline: 'Thầy Ba Gà 3D quẩy tưng bừng trên sân khấu!',
+    glowColor: 'from-amber-400 via-orange-500 to-red-500',
+  },
+  vica: {
+    title: 'Vũ Điệu Anh Vi Cá 3D',
+    icon: '🕶️',
+    animClass: 'animate-dance-disco',
+    model1: '/assets/nhau/patron-1.png',
+    model3d: '/assets/loto/dancers/vi-ca.glb',
+    anim3d: 'CharacterArmature|Wave',
+    tagline: 'Anh Vi Cá 3D chào khán giả và quẩy nhiệt tình!',
+    glowColor: 'from-blue-400 via-indigo-500 to-purple-500',
   },
   troupe: {
     title: 'Vũ Đoàn Hội Chợ Đồng Diễn',
     icon: '👯‍♀️',
     animClass: 'animate-dance-fan',
-    model1: '/assets/loto/dancers/dancer-fan.png',
-    video1: '/assets/loto/dancers/dance-fan-sample.webm',
-    model2: '/assets/loto/dancers/dancer-disco.png',
-    video2: '/assets/loto/dancers/dance-disco-sample.webm',
+    model1: '/assets/loto/dancers/dancer-female-flair.png',
+    video1: '/assets/loto/dancers/dance-anime.webm',
+    model2: '/assets/loto/dancers/dancer-hiphop.png',
+    video2: '/assets/loto/dancers/dance-stickmin.webm',
     tagline: 'Vũ đoàn đồng diễn 2 bên sân khấu tưng bừng hội chợ!',
     glowColor: 'from-yellow-400 via-red-500 to-pink-500',
   },
@@ -103,7 +143,7 @@ export const LotoStageDancer: React.FC<LotoStageDancerProps> = ({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.8, y: 20 }}
         transition={{ duration: 0.35, ease: 'easeOut' }}
-        className="absolute inset-x-0 top-[37%] z-30 flex flex-col items-center pointer-events-none select-none"
+        className="absolute inset-x-0 top-[33%] z-30 flex flex-col items-center pointer-events-none select-none"
       >
         {/* 1. BADGE ĐIỆU NHẢY */}
         <div className="flex items-center gap-1.5 px-3 py-0.5 mb-1 rounded-full bg-black/90 border border-yellow-300/90 shadow-[0_0_15px_rgba(245,158,11,0.7)] backdrop-blur-md pointer-events-auto">
@@ -179,15 +219,28 @@ export const LotoStageDancer: React.FC<LotoStageDancerProps> = ({
               </div>
             </div>
           ) : (
-            /* Vũ công chính giữa */
-            <div className={`relative w-36 h-40 flex items-end justify-center z-10 ${activeVideo1 ? '' : cfg.animClass}`}>
-              <LotoChromaKeyVideo
-                videoSrc={activeVideo1}
-                fallbackImage={cfg.model1}
-                alt={cfg.title}
-                isGreenScreen={activeIsGreen}
-                className="w-full h-full"
-              />
+            /* Vũ công chính giữa: Ưu tiên mô hình 3D rigged chuyển động thật nếu có */
+            <div className={`relative w-40 h-44 flex items-end justify-center z-10`}>
+              {cfg.model3d ? (
+                <LotoThreeDancer
+                  modelUrl={cfg.model3d}
+                  animationName={cfg.anim3d || 'Dance'}
+                  fallbackImage={cfg.model1}
+                  className="w-full h-full"
+                  scale={1.1}
+                  yOffset={-0.6}
+                />
+              ) : (
+                <div className={`w-full h-full flex items-end justify-center ${activeVideo1 ? '' : cfg.animClass}`}>
+                  <LotoChromaKeyVideo
+                    videoSrc={activeVideo1}
+                    fallbackImage={cfg.model1}
+                    alt={cfg.title}
+                    isGreenScreen={activeIsGreen}
+                    className="w-full h-full"
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>

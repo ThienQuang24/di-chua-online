@@ -40,7 +40,16 @@ export interface LotoScreenConfig {
   cycleIntervalSeconds: number;
 }
 
-export type LotoDanceStyle = 'fan' | 'hipshake' | 'disco' | 'robot' | 'troupe';
+export type LotoDanceStyle =
+  | 'fan'
+  | 'hipshake'
+  | 'disco'
+  | 'robot'
+  | 'troupe'
+  | 'baga'
+  | 'vica'
+  | 'anime'
+  | 'stickmin';
 
 export interface LotoState {
   roundId: number;
