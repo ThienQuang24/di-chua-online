@@ -2,8 +2,8 @@ import type { Devotee } from '../types/temple';
 import { SEATS } from '../components/DevoteeCrowd';
 
 // Seats in the hall (DevoteeCrowd SEATS); seat 0 fills first
-// Support large audience rooms (up to 150+ devotees)
-export const SEAT_COUNT = Math.max(SEATS.length, 150);
+// Support massive high-traffic live rooms (up to 1,000+ devotees)
+export const SEAT_COUNT = Math.max(SEATS.length, 1000);
 
 /**
  * Seat for a newcomer: the first free seat, or, when the hall is full, the seat of the person

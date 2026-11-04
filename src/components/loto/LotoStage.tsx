@@ -186,6 +186,29 @@ export const LotoStage: React.FC<LotoStageProps> = ({
     handleSelectUser(tickets[nextIdx].username);
   };
 
+  // Tích hợp danh sách khán giả và toàn bộ người cầm vé (hỗ trợ quy mô 100 - 1,000+ người chơi)
+  const allAudience = React.useMemo(() => {
+    const map = new Map<string, Devotee>();
+    devotees.forEach((d) => map.set(d.username.toLowerCase(), d));
+    tickets.forEach((t, idx) => {
+      const key = t.username.toLowerCase();
+      if (!map.has(key)) {
+        map.set(key, {
+          id: `ticket-dev-${t.id || idx}`,
+          username: t.username,
+          displayName: t.displayName || t.username,
+          avatarUrl: t.avatarUrl || '',
+          joinedAt: t.createdAt || Date.now(),
+          lastActive: t.createdAt || Date.now(),
+          seat: idx,
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [devotees, tickets]);
+
+  const totalAudienceCount = Math.max(allAudience.length, tickets.length);
+
   return (
     <div
       className={`relative mx-auto bg-[#0a0403] overflow-hidden shadow-2xl flex flex-col justify-between border border-amber-500/40 select-none ${
@@ -235,10 +258,10 @@ export const LotoStage: React.FC<LotoStageProps> = ({
               Ván #{gameState.roundId}
             </span>
             <span className="bg-black/60 px-2.5 py-0.5 rounded-full border border-amber-500/40 flex items-center gap-1">
-              <span>👥 {devotees.length} khán giả trong hội trường</span>
-              {devotees.length > 31 && (
+              <span>👥 {totalAudienceCount} khán giả trong hội trường</span>
+              {totalAudienceCount > 31 && (
                 <span className="text-[8px] text-yellow-300 font-bold bg-yellow-950/80 px-1 py-0.2 rounded border border-yellow-500/50">
-                  +{devotees.length - 31} đứng cổ vũ
+                  +{totalAudienceCount - 31} đứng cổ vũ
                 </span>
               )}
             </span>
@@ -322,7 +345,7 @@ export const LotoStage: React.FC<LotoStageProps> = ({
       {/* 4. ĐÁM ĐÔNG KHÁN GIẢ HỘI CHỢ NGỒI DÒ VÉ TRÊN SÂN HỘI TRƯỜNG (HOÀN TOÀN KHÔNG BỊ CHE KHUẤT) */}
       <div className="absolute inset-0 z-20 pointer-events-none">
         <LotoFairCrowd
-          devotees={devotees}
+          devotees={allAudience}
           currentNumber={gameState.currentNumber}
           onSelectPlayer={(username) => handleSelectUser(username)}
           activeDanceTier={activeDanceTier}
