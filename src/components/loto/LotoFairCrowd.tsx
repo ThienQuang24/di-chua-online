@@ -34,98 +34,123 @@ const DEFAULT_AVATARS = [
 ];
 
 /**
- * 31 SEATS ARRANGED IN 5 CURVED STADIUM ROWS (y: 58% - 90.5%)
- * Natural perspective depth: smaller in back (0.62), larger in front (1.02).
- * Completely unobstructed below the wooden stage (y: 33% - 53%) and above footer buttons (y: 93%+).
+ * KHÁN ĐÀI HỘI CHỢ LÔ TÔ DÂN GIAN:
+ * 1. 31 người ngồi quây quần gần nhau ở trung tâm (Row 5 -> Row 1, y: 60% - 93%).
+ * 2. Nếu còn người thì xếp vào các hàng đằng sau hướng về bục gỗ (Row 0, Row -1, Row -2, y: 44% - 55%).
+ * 3. TẤT CẢ TÊN KHÁN GIẢ ĐỀU Ở TRÊN ĐẦU (Head Nameplate: [Avatar + Tên]), dưới chân hoàn toàn sạch đẹp.
  */
 export const FAIR_SEATS = [
-  // HÀNG 1 (Sát chân bục gỗ sân khấu, y ~58-60%) - 6 chỗ (scale: 0.62)
-  { x: 14, y: 58.0, scale: 0.62, flip: false, modelIdx: 0 },
-  { x: 28, y: 59.0, scale: 0.63, flip: false, modelIdx: 2 },
-  { x: 42, y: 59.8, scale: 0.64, flip: false, modelIdx: 1 },
-  { x: 58, y: 59.8, scale: 0.64, flip: true,  modelIdx: 4 },
-  { x: 72, y: 59.0, scale: 0.63, flip: true,  modelIdx: 3 },
-  { x: 86, y: 58.0, scale: 0.62, flip: true,  modelIdx: 5 },
+  // HÀNG 5 (Hàng tiền cảnh sát mép dưới - 5 chỗ, scale 1.05, y: ~92.5%)
+  { x: 18, y: 92.0, scale: 1.04, flip: false, modelIdx: 1 }, // 0
+  { x: 34, y: 92.5, scale: 1.05, flip: false, modelIdx: 0 }, // 1
+  { x: 50, y: 93.0, scale: 1.06, flip: false, modelIdx: 2 }, // 2
+  { x: 66, y: 92.5, scale: 1.05, flip: true,  modelIdx: 4 }, // 3
+  { x: 82, y: 92.0, scale: 1.04, flip: true,  modelIdx: 3 }, // 4
 
-  // HÀNG 2 (Hàng sau trung tâm, y ~65-68%) - 7 chỗ (scale: 0.72)
-  { x: 10, y: 65.5, scale: 0.71, flip: false, modelIdx: 5 },
-  { x: 23, y: 66.5, scale: 0.72, flip: false, modelIdx: 0 },
-  { x: 36, y: 67.5, scale: 0.73, flip: false, modelIdx: 2 },
-  { x: 50, y: 68.0, scale: 0.74, flip: false, modelIdx: 1 },
-  { x: 64, y: 67.5, scale: 0.73, flip: true,  modelIdx: 3 },
-  { x: 77, y: 66.5, scale: 0.72, flip: true,  modelIdx: 4 },
-  { x: 90, y: 65.5, scale: 0.71, flip: true,  modelIdx: 0 },
+  // HÀNG 4 (Hàng cận cảnh - 6 chỗ, scale 0.93, y: ~84.5%)
+  { x: 16, y: 83.5, scale: 0.92, flip: false, modelIdx: 4 }, // 5
+  { x: 30, y: 84.2, scale: 0.93, flip: false, modelIdx: 2 }, // 6
+  { x: 43, y: 84.8, scale: 0.94, flip: false, modelIdx: 0 }, // 7
+  { x: 57, y: 84.8, scale: 0.94, flip: true,  modelIdx: 1 }, // 8
+  { x: 70, y: 84.2, scale: 0.93, flip: true,  modelIdx: 3 }, // 9
+  { x: 84, y: 83.5, scale: 0.92, flip: true,  modelIdx: 5 }, // 10
 
-  // HÀNG 3 (Hàng giữa hội trường, y ~73-76%) - 7 chỗ (scale: 0.82)
-  { x: 9,  y: 73.0, scale: 0.80, flip: false, modelIdx: 1 },
-  { x: 22, y: 74.0, scale: 0.82, flip: false, modelIdx: 3 },
-  { x: 36, y: 75.0, scale: 0.84, flip: false, modelIdx: 5 },
-  { x: 50, y: 75.5, scale: 0.85, flip: false, modelIdx: 0 },
-  { x: 64, y: 75.0, scale: 0.84, flip: true,  modelIdx: 2 },
-  { x: 78, y: 74.0, scale: 0.82, flip: true,  modelIdx: 4 },
-  { x: 91, y: 73.0, scale: 0.80, flip: true,  modelIdx: 1 },
+  // HÀNG 3 (Hàng giữa hội trường - 7 chỗ, scale 0.83, y: ~76.5%)
+  { x: 15, y: 75.5, scale: 0.82, flip: false, modelIdx: 1 }, // 11
+  { x: 27, y: 76.0, scale: 0.83, flip: false, modelIdx: 3 }, // 12
+  { x: 38, y: 76.5, scale: 0.84, flip: false, modelIdx: 5 }, // 13
+  { x: 50, y: 77.0, scale: 0.85, flip: false, modelIdx: 0 }, // 14
+  { x: 62, y: 76.5, scale: 0.84, flip: true,  modelIdx: 2 }, // 15
+  { x: 73, y: 76.0, scale: 0.83, flip: true,  modelIdx: 4 }, // 16
+  { x: 85, y: 75.5, scale: 0.82, flip: true,  modelIdx: 1 }, // 17
 
-  // HÀNG 4 (Hàng cận cảnh, y ~81-84%) - 6 chỗ (scale: 0.92)
-  { x: 12, y: 81.0, scale: 0.90, flip: false, modelIdx: 4 },
-  { x: 27, y: 82.0, scale: 0.92, flip: false, modelIdx: 2 },
-  { x: 42, y: 83.0, scale: 0.94, flip: false, modelIdx: 0 },
-  { x: 58, y: 83.0, scale: 0.94, flip: true,  modelIdx: 1 },
-  { x: 73, y: 82.0, scale: 0.92, flip: true,  modelIdx: 3 },
-  { x: 88, y: 81.0, scale: 0.90, flip: true,  modelIdx: 5 },
+  // HÀNG 2 (Hàng sau trung tâm - 7 chỗ, scale 0.74, y: ~68.5%)
+  { x: 17, y: 67.5, scale: 0.73, flip: false, modelIdx: 5 }, // 18
+  { x: 28, y: 68.0, scale: 0.74, flip: false, modelIdx: 0 }, // 19
+  { x: 39, y: 68.5, scale: 0.75, flip: false, modelIdx: 2 }, // 20
+  { x: 50, y: 69.0, scale: 0.76, flip: false, modelIdx: 1 }, // 21
+  { x: 61, y: 68.5, scale: 0.75, flip: true,  modelIdx: 3 }, // 22
+  { x: 72, y: 68.0, scale: 0.74, flip: true,  modelIdx: 4 }, // 23
+  { x: 83, y: 67.5, scale: 0.73, flip: true,  modelIdx: 0 }, // 24
 
-  // HÀNG 5 (Hàng tiền cảnh, y ~89-91%) - 5 chỗ (scale: 1.02)
-  { x: 16, y: 89.0, scale: 1.00, flip: false, modelIdx: 1 },
-  { x: 33, y: 90.0, scale: 1.02, flip: false, modelIdx: 0 },
-  { x: 50, y: 90.8, scale: 1.04, flip: false, modelIdx: 2 },
-  { x: 67, y: 90.0, scale: 1.02, flip: true,  modelIdx: 4 },
-  { x: 84, y: 89.0, scale: 1.00, flip: true,  modelIdx: 3 },
+  // HÀNG 1 (Hàng đầu cụm 31 người - 6 chỗ, scale 0.65, y: ~60.5%)
+  { x: 20, y: 60.0, scale: 0.64, flip: false, modelIdx: 0 }, // 25
+  { x: 32, y: 60.5, scale: 0.65, flip: false, modelIdx: 2 }, // 26
+  { x: 44, y: 61.0, scale: 0.66, flip: false, modelIdx: 1 }, // 27
+  { x: 56, y: 61.0, scale: 0.66, flip: true,  modelIdx: 4 }, // 28
+  { x: 68, y: 60.5, scale: 0.65, flip: true,  modelIdx: 3 }, // 29
+  { x: 80, y: 60.0, scale: 0.64, flip: true,  modelIdx: 5 }, // 30
+
+  // HÀNG PHÍA SAU (NẾU CÒN THÊM NGƯỜI THÌ XẾP ĐẰNG SAU - ROW 0, ROW -1)
+  // Row 0 (Hàng phía sau 1 - 8 chỗ, scale 0.56, y: ~55.5%)
+  { x: 17, y: 55.0, scale: 0.55, flip: false, modelIdx: 4 }, // 31
+  { x: 26, y: 55.4, scale: 0.56, flip: false, modelIdx: 1 }, // 32
+  { x: 36, y: 55.7, scale: 0.56, flip: false, modelIdx: 3 }, // 33
+  { x: 45, y: 56.0, scale: 0.57, flip: false, modelIdx: 5 }, // 34
+  { x: 55, y: 56.0, scale: 0.57, flip: true,  modelIdx: 0 }, // 35
+  { x: 64, y: 55.7, scale: 0.56, flip: true,  modelIdx: 2 }, // 36
+  { x: 74, y: 55.4, scale: 0.56, flip: true,  modelIdx: 4 }, // 37
+  { x: 83, y: 55.0, scale: 0.55, flip: true,  modelIdx: 1 }, // 38
+
+  // Row -1 (Hàng phía sau 2 sát chân bục gỗ - 8 chỗ, scale 0.48, y: ~50.5%)
+  { x: 19, y: 50.0, scale: 0.47, flip: false, modelIdx: 2 }, // 39
+  { x: 28, y: 50.3, scale: 0.48, flip: false, modelIdx: 0 }, // 40
+  { x: 37, y: 50.6, scale: 0.49, flip: false, modelIdx: 4 }, // 41
+  { x: 46, y: 50.8, scale: 0.49, flip: false, modelIdx: 1 }, // 42
+  { x: 54, y: 50.8, scale: 0.49, flip: true,  modelIdx: 3 }, // 43
+  { x: 63, y: 50.6, scale: 0.49, flip: true,  modelIdx: 5 }, // 44
+  { x: 72, y: 50.3, scale: 0.48, flip: true,  modelIdx: 2 }, // 45
+  { x: 81, y: 50.0, scale: 0.47, flip: true,  modelIdx: 0 }, // 46
 ];
 
 /**
  * THỨ TỰ LẤP ĐẦY CHỖ NGỒI (SEAT FILL ORDER):
- * Khi có ít người (4-8 người), ưu tiên ngồi hàng tiền cảnh & trung tâm (Row 5 & 4).
- * Khi đông người hơn (10-20 người), mở rộng sang Row 3 & 4.
- * Khi đầy kín (31 người), lấp đầy toàn bộ khán phòng đến sát sân khấu.
+ * 1. Nhóm 31 người đầu: Lấp đầy trọn vẹn cụm 31 ghế gần nhau (Row 5 -> Row 1).
+ * 2. Người thứ 32 trở đi: Tiếp tục ngồi các hàng đằng sau hướng về phía bục gỗ sân khấu.
  */
 const SEAT_FILL_ORDER = [
-  // 1. Nhóm 4-7 người đầu: Tiền cảnh trung tâm nổi bật nhất
-  28, // Row 5 (x=50)
-  27, // Row 5 (x=33)
-  29, // Row 5 (x=67)
-  22, // Row 4 (x=42)
-  23, // Row 4 (x=58)
-  26, // Row 5 (x=16)
-  30, // Row 5 (x=84)
+  // 1. Nhóm 1-5 người: Tiền cảnh trung tâm
+  2,  // Row 5 center (x=50)
+  1,  // Row 5 mid-left (x=35)
+  3,  // Row 5 mid-right (x=65)
+  7,  // Row 4 mid-left (x=43)
+  8,  // Row 4 mid-right (x=57)
 
-  // 2. Nhóm 8-16 người: Hàng cận cảnh & hàng giữa
-  21, // Row 4 (x=27)
-  24, // Row 4 (x=73)
-  16, // Row 3 (x=50)
-  15, // Row 3 (x=36)
-  17, // Row 3 (x=64)
-  20, // Row 4 (x=12)
-  25, // Row 4 (x=88)
-  14, // Row 3 (x=22)
-  18, // Row 3 (x=78)
+  // 2. Nhóm 6-11 người: Tiền cảnh & Cận cảnh
+  0,  // Row 5 left (x=20)
+  4,  // Row 5 right (x=80)
+  14, // Row 3 center (x=50)
+  6,  // Row 4 left (x=30)
+  9,  // Row 4 right (x=70)
+  13, // Row 3 mid-left (x=38)
 
-  // 3. Nhóm 17-25 người: Hàng giữa & hàng sau
-  13, // Row 3 (x=9)
-  19, // Row 3 (x=91)
-  9,  // Row 2 (x=50)
-  8,  // Row 2 (x=38)
-  10, // Row 2 (x=62)
-  7,  // Row 2 (x=25)
-  11, // Row 2 (x=77)
-  6,  // Row 2 (x=12)
-  12, // Row 2 (x=88)
+  // 3. Nhóm 12-21 người: Hàng giữa & Cận cảnh
+  15, // Row 3 mid-right (x=62)
+  5,  // Row 4 far-left (x=17)
+  10, // Row 4 far-right (x=83)
+  21, // Row 2 center (x=50)
+  12, // Row 3 left (x=27)
+  16, // Row 3 right (x=73)
+  20, // Row 2 mid-left (x=40)
+  22, // Row 2 mid-right (x=60)
+  11, // Row 3 far-left (x=16)
+  17, // Row 3 far-right (x=84)
 
-  // 4. Nhóm 26-31 người: Lấp đầy hàng 1 sát chân bục gỗ sân khấu
-  2,  // Row 1 (x=42)
-  3,  // Row 1 (x=58)
-  1,  // Row 1 (x=28)
-  4,  // Row 1 (x=72)
-  0,  // Row 1 (x=14)
-  5,  // Row 1 (x=86)
+  // 4. Nhóm 22-31 người: Lấp đầy hàng 2 & hàng 1 (Tròn 31 người quây quần gần nhau)
+  19, // Row 2 left (x=29)
+  23, // Row 2 right (x=71)
+  18, // Row 2 far-left (x=18)
+  24, // Row 2 far-right (x=82)
+  27, // Row 1 mid-left (x=44)
+  28, // Row 1 mid-right (x=56)
+  26, // Row 1 left (x=32)
+  29, // Row 1 right (x=68)
+  25, // Row 1 far-left (x=20)
+  30, // Row 1 far-right (x=80)
+
+  // 5. Nếu còn thêm người: Tự động xếp vào các hàng đằng sau
+  34, 35, 33, 36, 32, 37, 31, 38, // Row 0 (y ~55.5%)
+  42, 43, 41, 44, 40, 45, 39, 46, // Row -1 (y ~50.5%)
 ];
 
 export const hash = (s: string) => {
@@ -257,7 +282,7 @@ export const LotoFairCrowd: React.FC<LotoFairCrowdProps> = ({
                     : '🌹 HOA HỒNG TƯƠI!'}
                 </span>
               ) : justMatched ? (
-                <span className="px-1.5 py-0.5 rounded bg-emerald-500 text-[7px] font-bold text-slate-950 shadow animate-ping whitespace-nowrap">
+                <span className="px-1.5 py-0.5 rounded-full bg-emerald-500 border border-emerald-300 text-[7px] font-black text-slate-950 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse whitespace-nowrap">
                   🎯 Dính số!
                 </span>
               ) : devotee.activeComment ? (
@@ -267,28 +292,31 @@ export const LotoFairCrowd: React.FC<LotoFairCrowdProps> = ({
               ) : null}
             </div>
 
-            {/* 2. KHUNG NHÂN VẬT & AVATAR GẮN GỌN GÀNG SÁT ĐỈNH ĐẦU */}
-            <div className="relative w-16 h-20 flex items-end justify-center">
-              {/* Avatar TikTok nhỏ xinh tinh tế sát đỉnh đầu */}
-              <div className="absolute top-[-8px] z-20 flex flex-col items-center">
-                <div className="w-5 h-5 rounded-full border border-yellow-400 p-[0.5px] bg-black/80 shadow-[0_0_6px_rgba(245,158,11,0.6)] overflow-hidden flex items-center justify-center">
-                  {devotee.avatarUrl && (devotee.avatarUrl.startsWith('http') || devotee.avatarUrl.startsWith('data:')) ? (
-                    <img
-                      src={devotee.avatarUrl}
-                      alt={devotee.displayName}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full rounded-full object-cover"
-                    />
-                  ) : (
-                    <div
-                      className={`w-full h-full rounded-full bg-gradient-to-tr ${avatarProfile.bg} text-[10px] flex items-center justify-center shadow-inner`}
-                    >
-                      <span>{avatarProfile.icon}</span>
-                    </div>
-                  )}
-                </div>
+            {/* 2. TÊN KHÁN GIẢ & AVATAR ĐẶT GỌN GÀNG TRÊN ĐẦU (TÊN Ở TRÊN ĐẦU) */}
+            <div className="flex items-center gap-1 px-1.5 py-[1.5px] rounded-full bg-black/90 border border-amber-400/80 shadow-[0_2px_5px_rgba(0,0,0,0.8)] backdrop-blur-xs max-w-[66px] mb-[-5px] z-20">
+              <div className="w-3 h-3 rounded-full border border-yellow-300/80 p-[0.5px] bg-black overflow-hidden flex items-center justify-center shrink-0">
+                {devotee.avatarUrl && (devotee.avatarUrl.startsWith('http') || devotee.avatarUrl.startsWith('data:')) ? (
+                  <img
+                    src={devotee.avatarUrl}
+                    alt={devotee.displayName}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  <div
+                    className={`w-full h-full rounded-full bg-gradient-to-tr ${avatarProfile.bg} text-[7px] flex items-center justify-center shadow-inner`}
+                  >
+                    <span>{avatarProfile.icon}</span>
+                  </div>
+                )}
               </div>
+              <span className="text-[7px] font-bold text-amber-200 truncate leading-none">
+                {devotee.displayName}
+              </span>
+            </div>
 
+            {/* 3. KHUNG NHÂN VẬT 3D */}
+            <div className="relative w-16 h-20 flex items-end justify-center">
               {/* Bóng đổ nền sàn hội chợ */}
               <div className="absolute -bottom-1 w-12 h-3.5 bg-black/60 rounded-[50%] blur-[2.5px]" />
 
@@ -304,11 +332,6 @@ export const LotoFairCrowd: React.FC<LotoFairCrowdProps> = ({
                   loading="eager"
                 />
               </div>
-            </div>
-
-            {/* 3. TÊN KHÁN GIẢ GỌN GÀNG DƯỚI CHÂN */}
-            <div className="mt-[-1px] px-1.5 py-[0.5px] rounded-full bg-black/85 border border-amber-500/50 text-[7px] font-bold text-amber-200 shadow text-center truncate max-w-[65px] backdrop-blur-xs">
-              {devotee.displayName}
             </div>
           </motion.div>
         );
