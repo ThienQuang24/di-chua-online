@@ -1294,7 +1294,7 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
           )}
         </div>
 
-        {/* Nút Chọn Kiểu Nhảy Trực Tiếp (100% Video Hoạt Hình & Vũ Công Chuyển Động Thật) */}
+        {/* Nút Chọn Kiểu Nhảy Trực Tiếp (100% Video Vũ Điệu & Trend TikTok Hot Nhất) */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2">
           {/* 1. ANIME CHIKA DANCE - VIDEO 1 GỐC GIỮ NGUYÊN THEO YÊU CẦU */}
           <button
@@ -1310,49 +1310,49 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
             <span className="text-[8px] text-pink-200 font-bold text-center">⭐ Video 1 Gốc (Giữ Nguyên)</span>
           </button>
 
-          {/* 2. ANIME CHIKA XOAY VÒNG BƯỚC NHẢY */}
+          {/* 2. TREND TIKTOK: VŨ ĐOÀN K-POP 3 NGƯỜI */}
           <button
-            onClick={() => handleTriggerDance('chika_spin', '/assets/loto/dancers/dance-chika-spin.webm', false)}
+            onClick={() => handleTriggerDance('kpop_trio', '/assets/loto/dancers/dance-kpop-trio.webm', false)}
             className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
-              gameState.danceStyle === 'chika_spin'
-                ? 'bg-gradient-to-r from-rose-500 to-pink-400 text-white border-rose-200 scale-105 shadow-[0_0_20px_rgba(244,63,94,0.8)] ring-2 ring-rose-400'
-                : 'bg-rose-950/40 border-rose-500/50 text-rose-200 hover:bg-rose-900/50'
-            }`}
-          >
-            <span className="text-2xl animate-bounce">🌸</span>
-            <span className="text-[10px] font-black text-center">2. Anime Chika (Xoay Vòng)</span>
-            <span className="text-[8px] text-rose-200 font-bold text-center">✨ Nhún nhảy xoay váy</span>
-          </button>
-
-          {/* 3. ANIME WAIFU ALICE HAPPY HANDS 4K */}
-          <button
-            onClick={() => handleTriggerDance('alice', '/assets/loto/dancers/dance-alice.webm', false)}
-            className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
-              gameState.danceStyle === 'alice'
-                ? 'bg-gradient-to-r from-fuchsia-500 to-pink-400 text-white border-fuchsia-200 scale-105 shadow-[0_0_20px_rgba(217,70,239,0.8)] ring-2 ring-fuchsia-400'
+              gameState.danceStyle === 'kpop_trio'
+                ? 'bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white border-fuchsia-200 scale-105 shadow-[0_0_20px_rgba(217,70,239,0.8)] ring-2 ring-fuchsia-400'
                 : 'bg-fuchsia-950/40 border-fuchsia-500/50 text-fuchsia-200 hover:bg-fuchsia-900/50'
             }`}
           >
-            <span className="text-2xl animate-bounce">🐰</span>
-            <span className="text-[10px] font-black text-center">3. Anime Alice (Happy Hands)</span>
-            <span className="text-[8px] text-fuchsia-200 font-bold text-center">✨ 4K Waifu tai thỏ</span>
+            <span className="text-2xl animate-bounce">✨</span>
+            <span className="text-[10px] font-black text-center">2. K-Pop Trio (TikTok Trend)</span>
+            <span className="text-[8px] text-fuchsia-200 font-bold text-center">🔥 Vũ điệu 3 cô gái triệu view</span>
           </button>
 
-          {/* 4. ANIME WAIFU RAIKOU QUẨY KIẾM MMD */}
+          {/* 3. TREND TIKTOK: ERLING HAALAND BRAZILIAN PHONK */}
           <button
-            onClick={() => handleTriggerDance('waifu_mmd', '/assets/loto/dancers/dance-waifu-mmd.webm', false)}
+            onClick={() => handleTriggerDance('haaland', '/assets/loto/dancers/dance-haaland.webm', false)}
             className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
-              gameState.danceStyle === 'waifu_mmd'
-                ? 'bg-gradient-to-r from-purple-600 to-indigo-500 text-white border-purple-200 scale-105 shadow-[0_0_20px_rgba(168,85,247,0.8)] ring-2 ring-purple-400'
-                : 'bg-purple-950/40 border-purple-500/50 text-purple-200 hover:bg-purple-900/50'
+              gameState.danceStyle === 'haaland'
+                ? 'bg-gradient-to-r from-red-600 to-amber-500 text-white border-red-200 scale-105 shadow-[0_0_20px_rgba(239,68,68,0.8)] ring-2 ring-red-400'
+                : 'bg-red-950/40 border-red-500/50 text-red-200 hover:bg-red-900/50'
             }`}
           >
-            <span className="text-2xl animate-bounce">⚔️</span>
-            <span className="text-[10px] font-black text-center">4. Anime Waifu Raikou</span>
-            <span className="text-[8px] text-purple-200 font-bold text-center">✨ Quẩy kiếm 3D MMD</span>
+            <span className="text-2xl animate-bounce">⚡</span>
+            <span className="text-[10px] font-black text-center">3. Haaland Phonk Dance</span>
+            <span className="text-[8px] text-red-200 font-bold text-center">⚽ Siêu phẩm bóng đá TikTok</span>
           </button>
 
-          {/* 5. MÈO TIKTOK MEME ĐỨNG 2 CHÂN */}
+          {/* 4. TREND TIKTOK: TOC TOC DANCE */}
+          <button
+            onClick={() => handleTriggerDance('toctoc', '/assets/loto/dancers/dance-toctoc.webm', false)}
+            className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
+              gameState.danceStyle === 'toctoc'
+                ? 'bg-gradient-to-r from-blue-600 to-cyan-400 text-white border-cyan-200 scale-105 shadow-[0_0_20px_rgba(6,182,212,0.8)] ring-2 ring-cyan-400'
+                : 'bg-blue-950/40 border-blue-500/50 text-blue-200 hover:bg-blue-900/50'
+            }`}
+          >
+            <span className="text-2xl animate-bounce">🕺</span>
+            <span className="text-[10px] font-black text-center">4. Toc Toc Dance (Soái Ca)</span>
+            <span className="text-[8px] text-cyan-200 font-bold text-center">🔥 Đảo chân uốn éo siêu cuốn</span>
+          </button>
+
+          {/* 5. TREND TIKTOK: CHÚ MÈO ĐỨNG 2 CHÂN */}
           <button
             onClick={() => handleTriggerDance('cat_meme', '/assets/loto/dancers/dance-cat-meme.webm', false)}
             className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
@@ -1363,24 +1363,24 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
           >
             <span className="text-2xl animate-bounce">🐱</span>
             <span className="text-[10px] font-black text-center">5. Mèo Nhảy TikTok</span>
-            <span className="text-[8px] text-amber-200 font-bold text-center">🔥 Siêu Phẩm Meme 2 chân</span>
+            <span className="text-[8px] text-amber-200 font-bold text-center">🔥 Meme triệu view đứng 2 chân</span>
           </button>
 
-          {/* 6. ANIME WAIFU ALTERA LẮC HÔNG */}
+          {/* 6. TREND TIKTOK: CẶP ĐÔI CÁ SẤU SMOOTH CRIMINAL */}
           <button
-            onClick={() => handleTriggerDance('altera', '/assets/loto/dancers/dance-altera.webm', false)}
+            onClick={() => handleTriggerDance('croc_duo', '/assets/loto/dancers/dance-croc-duo.webm', false)}
             className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
-              gameState.danceStyle === 'altera'
+              gameState.danceStyle === 'croc_duo'
                 ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 border-emerald-200 scale-105 shadow-[0_0_20px_rgba(16,185,129,0.8)] ring-2 ring-emerald-400'
                 : 'bg-emerald-950/40 border-emerald-500/50 text-emerald-200 hover:bg-emerald-900/50'
             }`}
           >
-            <span className="text-2xl animate-bounce">💃</span>
-            <span className="text-[10px] font-black text-center">6. Anime Waifu Altera</span>
-            <span className="text-[8px] text-emerald-200 font-bold text-center">🔥 Lắc hông Good Civ</span>
+            <span className="text-2xl animate-bounce">🐊</span>
+            <span className="text-[10px] font-black text-center">6. Cặp Đôi Cá Sấu</span>
+            <span className="text-[8px] text-emerald-200 font-bold text-center">🔥 Lắc hông Smooth Criminal</span>
           </button>
 
-          {/* 7. SONG CA ĐỒNG DIỄN (CHIKA & ALICE) */}
+          {/* 7. VŨ ĐOÀN ĐỒNG DIỄN SONG CA */}
           <button
             onClick={() => handleTriggerDance('troupe')}
             className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
@@ -1390,8 +1390,8 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
             }`}
           >
             <span className="text-2xl animate-bounce">👯‍♀️</span>
-            <span className="text-[10px] font-black text-center">7. Song Ca Waifu</span>
-            <span className="text-[8px] text-yellow-200 font-bold text-center">👑 Chika & Alice đồng diễn</span>
+            <span className="text-[10px] font-black text-center">7. Song Ca Đồng Diễn</span>
+            <span className="text-[8px] text-yellow-200 font-bold text-center">👑 K-Pop & Chika 2 bên sân khấu</span>
           </button>
         </div>
 
@@ -1428,36 +1428,36 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
             </button>
 
             <button
-              onClick={() => handleTriggerDance('chika_spin', '/assets/loto/dancers/dance-chika-spin.webm', false)}
+              onClick={() => handleTriggerDance('kpop_trio', '/assets/loto/dancers/dance-kpop-trio.webm', false)}
               className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                danceVideoUrl === '/assets/loto/dancers/dance-chika-spin.webm' && gameState.danceStyle === 'chika_spin'
-                  ? 'bg-rose-500 text-white border-rose-300 shadow scale-105'
-                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-rose-400'
-              }`}
-            >
-              🌸 2. Chika Xoay Vòng
-            </button>
-
-            <button
-              onClick={() => handleTriggerDance('alice', '/assets/loto/dancers/dance-alice.webm', false)}
-              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                danceVideoUrl === '/assets/loto/dancers/dance-alice.webm' && gameState.danceStyle === 'alice'
+                danceVideoUrl === '/assets/loto/dancers/dance-kpop-trio.webm' && gameState.danceStyle === 'kpop_trio'
                   ? 'bg-fuchsia-500 text-white border-fuchsia-300 shadow scale-105'
                   : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-fuchsia-400'
               }`}
             >
-              🐰 3. Alice Happy Hands
+              ✨ 2. K-Pop Trio
             </button>
 
             <button
-              onClick={() => handleTriggerDance('waifu_mmd', '/assets/loto/dancers/dance-waifu-mmd.webm', false)}
+              onClick={() => handleTriggerDance('haaland', '/assets/loto/dancers/dance-haaland.webm', false)}
               className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                danceVideoUrl === '/assets/loto/dancers/dance-waifu-mmd.webm' && gameState.danceStyle === 'waifu_mmd'
-                  ? 'bg-purple-600 text-white border-purple-300 shadow scale-105'
-                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-purple-400'
+                danceVideoUrl === '/assets/loto/dancers/dance-haaland.webm' && gameState.danceStyle === 'haaland'
+                  ? 'bg-red-600 text-white border-red-300 shadow scale-105'
+                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-red-400'
               }`}
             >
-              ⚔️ 4. Waifu Raikou MMD
+              ⚡ 3. Haaland Phonk
+            </button>
+
+            <button
+              onClick={() => handleTriggerDance('toctoc', '/assets/loto/dancers/dance-toctoc.webm', false)}
+              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
+                danceVideoUrl === '/assets/loto/dancers/dance-toctoc.webm' && gameState.danceStyle === 'toctoc'
+                  ? 'bg-blue-600 text-white border-blue-300 shadow scale-105'
+                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-blue-400'
+              }`}
+            >
+              🕺 4. Toc Toc Dance
             </button>
 
             <button
@@ -1472,14 +1472,14 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
             </button>
 
             <button
-              onClick={() => handleTriggerDance('altera', '/assets/loto/dancers/dance-altera.webm', false)}
+              onClick={() => handleTriggerDance('croc_duo', '/assets/loto/dancers/dance-croc-duo.webm', false)}
               className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                danceVideoUrl === '/assets/loto/dancers/dance-altera.webm' && gameState.danceStyle === 'altera'
+                danceVideoUrl === '/assets/loto/dancers/dance-croc-duo.webm' && gameState.danceStyle === 'croc_duo'
                   ? 'bg-emerald-500 text-slate-950 border-emerald-300 shadow scale-105'
                   : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-emerald-400'
               }`}
             >
-              💃 6. Waifu Altera Lắc Hông
+              🐊 6. Cá Sấu Smooth
             </button>
 
             <button

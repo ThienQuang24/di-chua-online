@@ -54,7 +54,11 @@ export type LotoDanceStyle =
   | 'alice'
   | 'waifu_mmd'
   | 'altera'
-  | 'cat_meme';
+  | 'cat_meme'
+  | 'kpop_trio'
+  | 'haaland'
+  | 'toctoc'
+  | 'croc_duo';
 
 export interface LotoState {
   roundId: number;

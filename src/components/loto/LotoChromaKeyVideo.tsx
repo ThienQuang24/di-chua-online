@@ -162,7 +162,7 @@ export const LotoChromaKeyVideo: React.FC<LotoChromaKeyVideoProps> = ({
   }, [videoLoaded, useFallback, isWebmAlpha, isGreenScreen, keyRgb, tolerance, smoothness]);
 
   return (
-    <div className={`relative flex items-center justify-center ${className}`}>
+    <div className={`relative flex items-end justify-center ${className}`}>
       {/* Video element */}
       {videoSrc && !useFallback && (
         <video
@@ -174,7 +174,7 @@ export const LotoChromaKeyVideo: React.FC<LotoChromaKeyVideoProps> = ({
           autoPlay
           className={
             isWebmAlpha
-              ? `w-full h-full object-contain filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.85)] ${
+              ? `w-full h-full object-contain object-bottom filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.85)] ${
                   videoLoaded ? 'block' : 'hidden'
                 }`
               : 'absolute -top-[9999px] -left-[9999px] w-[300px] h-[400px] opacity-0 pointer-events-none'
