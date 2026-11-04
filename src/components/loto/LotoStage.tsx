@@ -234,8 +234,13 @@ export const LotoStage: React.FC<LotoStageProps> = ({
             <span className="bg-black/60 px-2.5 py-0.5 rounded-full border border-amber-500/40">
               Ván #{gameState.roundId}
             </span>
-            <span className="bg-black/60 px-2.5 py-0.5 rounded-full border border-amber-500/40">
-              👥 {devotees.length} khán giả trong hội trường
+            <span className="bg-black/60 px-2.5 py-0.5 rounded-full border border-amber-500/40 flex items-center gap-1">
+              <span>👥 {devotees.length} khán giả trong hội trường</span>
+              {devotees.length > 31 && (
+                <span className="text-[8px] text-yellow-300 font-bold bg-yellow-950/80 px-1 py-0.2 rounded border border-yellow-500/50">
+                  +{devotees.length - 31} đứng cổ vũ
+                </span>
+              )}
             </span>
           </div>
 

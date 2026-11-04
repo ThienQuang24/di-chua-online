@@ -226,6 +226,16 @@ app.get('/api/tiktok/events', (req, res) => {
 
   if (lastNameControl) res.write(`event: control\ndata: ${JSON.stringify(lastNameControl)}\n\n`);
   if (serverLotoState.danceStyle) res.write(`event: loto_update\ndata: ${JSON.stringify(serverLotoState)}\n\n`);
+
+  // Send all active loto players to new stage connections
+  if (serverLotoTickets.size > 0) {
+    const list = Array.from(serverLotoTickets.values()).map((t) => ({
+      username: t.username,
+      displayName: t.displayName,
+      avatarUrl: t.avatarUrl,
+    }));
+    res.write(`event: loto_initial_players\ndata: ${JSON.stringify(list)}\n\n`);
+  }
   sseClients.push(res);
 
   // Keep-alive heartbeat every 20s
@@ -360,6 +370,53 @@ app.post('/api/loto/sync', (req, res) => {
     danceGiftName: serverLotoState.danceGiftName,
   });
 
+  return res.json({ success: true });
+});
+
+// Batch add players from Streamer Panel and broadcast to all connected stages
+app.post('/api/loto/add-players', (req, res) => {
+  const { players } = req.body || {};
+  if (Array.isArray(players)) {
+    players.forEach((p: any) => {
+      const key = String(p.username || '').toLowerCase();
+      if (!key) return;
+      let ticket = serverLotoTickets.get(key);
+      if (!ticket) {
+        const rawGrid = generateVietnameseLotoCard();
+        const grid: ServerLotoCell[][] = rawGrid.map((row) =>
+          row.map((val) => ({
+            val,
+            isMarked: val !== null && serverLotoState.calledNumbers.includes(val),
+          }))
+        );
+        ticket = {
+          id: `ticket_${serverLotoState.roundId}_${key}`,
+          username: p.username,
+          displayName: p.displayName || p.username,
+          avatarUrl: p.avatarUrl || '',
+          grid,
+          markedCount: 0,
+          waitingNumbers: [],
+          hasWon: false,
+          createdAt: Date.now(),
+        };
+        recalcTicketStatus(ticket, serverLotoState.calledNumbers);
+        serverLotoTickets.set(key, ticket);
+        broadcastSSE('loto_new_player', {
+          username: ticket.username,
+          displayName: ticket.displayName,
+          avatarUrl: ticket.avatarUrl,
+        });
+      }
+    });
+  }
+  return res.json({ success: true, count: serverLotoTickets.size });
+});
+
+// Clear all active tickets and reset audience on server & clients
+app.post('/api/loto/clear-tickets', (_req, res) => {
+  serverLotoTickets.clear();
+  broadcastSSE('loto_clear_players', {});
   return res.json({ success: true });
 });
 

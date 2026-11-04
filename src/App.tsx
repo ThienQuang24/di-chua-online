@@ -858,15 +858,38 @@ function MainApp() {
       eventSource.addEventListener('loto_new_player', (e) => {
         try {
           const player = JSON.parse(e.data);
-          lotoEngine.issueTicket(player.username, player.displayName, '');
+          lotoEngine.issueTicket(player.username, player.displayName, player.avatarUrl || '');
           addOrUpdateDevotee(
             player.username,
-            () => ({ displayName: player.displayName }),
+            () => ({ displayName: player.displayName, avatarUrl: player.avatarUrl }),
             true
           );
         } catch (err) {
           console.error('SSE loto_new_player error', err);
         }
+      });
+
+      eventSource.addEventListener('loto_initial_players', (e) => {
+        try {
+          const list = JSON.parse(e.data);
+          if (Array.isArray(list)) {
+            list.forEach((p: any) => {
+              lotoEngine.issueTicket(p.username, p.displayName, p.avatarUrl || '');
+              addOrUpdateDevotee(
+                p.username,
+                () => ({ displayName: p.displayName, avatarUrl: p.avatarUrl }),
+                true
+              );
+            });
+          }
+        } catch (err) {
+          console.error('SSE loto_initial_players error', err);
+        }
+      });
+
+      eventSource.addEventListener('loto_clear_players', () => {
+        lotoEngine.clearAllTickets();
+        setDevotees([]);
       });
     } catch (err) {
       console.error('SSE connection error:', err);
@@ -1035,6 +1058,7 @@ function MainApp() {
                     addOrUpdateDevotee(name, (d) => ({ avatarUrl: avatar || d?.avatarUrl }), true)
                   }
                   onTriggerGift={handleTriggerLotoGift}
+                  onResetCrowd={handleResetCrowd}
                 />
               )}
               {currentTheme === 'nhau' && (
@@ -1109,6 +1133,7 @@ function MainApp() {
                   addOrUpdateDevotee(name, (d) => ({ avatarUrl: avatar || d?.avatarUrl }), true)
                 }
                 onTriggerGift={handleTriggerLotoGift}
+                onResetCrowd={handleResetCrowd}
               />
             )}
             {currentTheme === 'nhau' && (

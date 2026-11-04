@@ -6,9 +6,33 @@ import { soundEngine } from '../../services/soundEngine';
 interface LotoStreamerPanelProps {
   onAddDevotee?: (name: string, avatarUrl: string) => void;
   onTriggerGift?: (username: string, giftName: string, count?: number) => void;
+  onResetCrowd?: () => void;
 }
 
-export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevotee, onTriggerGift }) => {
+const VIETNAMESE_NAMES = [
+  'Hương Giang', 'Minh Tuấn', 'Bảo Ngọc', 'Hoàng Nam', 'Linh Đan', 'Thanh Hằng',
+  'Anh Ba Sài Gòn', 'Chị Tư Cần Thơ', 'Tuấn Ken', 'Khánh Linh', 'Quốc Bảo',
+  'Hà My', 'Mai Phương', 'Hùng Râu', 'Bé Bắp', 'Chú Năm Bia Hơi', 'Cô Bảy Lô Tô',
+  'Văn Hậu', 'Trâm Anh', 'Thúy Kiều', 'Đại Gia Phúc', 'Hải Đăng', 'Thu Trang',
+  'Tiến Luật', 'Diệu Nhi', 'Anh Tú', 'Phương Ly', 'Sơn Tùng (Fan)', 'Ngọc Trinh',
+  'Bình An', 'Kim Ngân', 'Đức Huy', 'Trọng Hoàng', 'Quang Hải', 'Văn Toàn',
+  'Chị Lan Bến Tre', 'Bác Tám Cà Mau', 'Bé Heo', 'Duy Mạnh', 'Bảo Anh'
+];
+
+const FAIR_AVATARS = [
+  '/assets/loto/patron-1.png',
+  '/assets/loto/patron-2.png',
+  '/assets/nhau/patron-female-1.png',
+  '/assets/nhau/patron-female-2.png',
+  '/assets/nhau/patron-1.png',
+  '/assets/nhau/patron-uncle-1.png',
+];
+
+export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({
+  onAddDevotee,
+  onTriggerGift,
+  onResetCrowd,
+}) => {
   const [gameState, setGameState] = useState<LotoState>(lotoEngine.getState());
   const [tickets, setTickets] = useState<LotoTicket[]>(lotoEngine.getTickets());
   const [customSpeak, setCustomSpeak] = useState('');
@@ -221,17 +245,64 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
     if (!newPlayerName.trim()) return;
     const raw = newPlayerName.trim();
     const cleanUser = raw.toLowerCase().replace(/[^a-z0-9_]/g, '_') + '_' + Math.floor(100 + Math.random() * 900);
-    lotoEngine.issueTicket(cleanUser, raw, '');
-    onAddDevotee?.(cleanUser, '');
+    const avatar = FAIR_AVATARS[Math.floor(Math.random() * FAIR_AVATARS.length)];
+    lotoEngine.issueTicket(cleanUser, raw, avatar);
+    onAddDevotee?.(cleanUser, avatar);
     setNewPlayerName('');
+
+    fetch('/api/loto/add-players', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        players: [{ username: cleanUser, displayName: raw, avatarUrl: avatar }],
+      }),
+    }).catch(() => {});
   };
 
   const handleSimulatePlayer = () => {
-    const fakeNames = ['Hương Giang', 'Minh Tuấn', 'Thanh Hằng', 'Bảo Ngọc', 'Hoàng Nam', 'Khánh Linh', 'Tuấn Ken', 'Chị Lan', 'Anh Ba', 'Hà My', 'Quốc Bảo'];
-    const baseName = fakeNames[Math.floor(Math.random() * fakeNames.length)];
-    const username = `${baseName.toLowerCase().replace(/\s+/g, '_')}_${Math.floor(100 + Math.random() * 900)}`;
-    lotoEngine.issueTicket(username, baseName, '');
-    onAddDevotee?.(username, '');
+    handleAddBatchPlayers(1);
+  };
+
+  const handleAddBatchPlayers = (count: number) => {
+    const existingTickets = lotoEngine.getTickets();
+    const existingUsers = new Set(existingTickets.map((t) => t.username.toLowerCase()));
+    const addedList: Array<{ username: string; displayName: string; avatarUrl: string }> = [];
+
+    for (let i = 0; i < count; i++) {
+      const name = VIETNAMESE_NAMES[Math.floor(Math.random() * VIETNAMESE_NAMES.length)];
+      const randId = Math.floor(100 + Math.random() * 900);
+      const cleanUser = `${name.toLowerCase().replace(/[^a-z0-9_]/g, '_')}_${randId}`;
+      const avatar = FAIR_AVATARS[Math.floor(Math.random() * FAIR_AVATARS.length)];
+
+      if (!existingUsers.has(cleanUser)) {
+        existingUsers.add(cleanUser);
+        lotoEngine.issueTicket(cleanUser, `${name}`, avatar);
+        onAddDevotee?.(cleanUser, avatar);
+        addedList.push({ username: cleanUser, displayName: `${name}`, avatarUrl: avatar });
+      }
+    }
+
+    if (addedList.length > 0) {
+      fetch('/api/loto/add-players', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ players: addedList }),
+      }).catch(() => {});
+    }
+  };
+
+  const handleFillAudience = (targetCount: number = 31) => {
+    const current = lotoEngine.getTickets().length;
+    const toAdd = Math.max(targetCount - current, 5);
+    handleAddBatchPlayers(toAdd);
+  };
+
+  const handleClearAudience = () => {
+    if (confirm('Bạn có chắc muốn xóa tất cả khán giả và vé ván này để làm mới hội trường?')) {
+      lotoEngine.clearAllTickets();
+      onResetCrowd?.();
+      fetch('/api/loto/clear-tickets', { method: 'POST' }).catch(() => {});
+    }
   };
 
   const handleSimulateWin = () => {
@@ -540,15 +611,82 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
           </label>
         </div>
 
-        {/* Form cấp vé nhanh cho người xem */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
-          <div className="flex items-center gap-2 flex-1 min-w-[260px]">
+        {/* Quản lý sức chứa khán phòng & thêm khách hàng loạt */}
+        <div className="flex flex-col gap-2 pt-2 border-t border-slate-800/80">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">👥</span>
+              <div>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
+                  <span>Khán Phòng Hội Trường:</span>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-yellow-300 border border-amber-500/40 text-[10.5px]">
+                    {tickets.length} khán giả ({Math.min(tickets.length, 31)}/31 ghế trực tiếp)
+                  </span>
+                  {tickets.length > 31 && (
+                    <span className="px-2 py-0.5 rounded-full bg-red-950/80 text-red-300 border border-red-500/50 text-[10px] animate-pulse">
+                      +{tickets.length - 31} đứng cổ vũ phía sau 🎪
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  Hội trường hỗ trợ 31 ghế ngồi 3D phân lớp sân vận động. Khi đông người (&gt;31 khách), hệ thống tự động ưu tiên người Chờ Kinh, Dính Số & Chat lên ghế trước.
+                </p>
+              </div>
+            </div>
+
+            {/* Dãy nút thêm nhanh hàng loạt */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                onClick={() => handleAddBatchPlayers(1)}
+                className="px-2.5 py-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 text-[11px] font-bold border border-emerald-500/50 shadow active:scale-95 transition-all flex items-center gap-1"
+                title="Thêm 1 khán giả ngẫu nhiên"
+              >
+                <span>+1</span>
+                <span>Khách</span>
+              </button>
+              <button
+                onClick={() => handleAddBatchPlayers(5)}
+                className="px-2.5 py-1.5 rounded-lg bg-teal-950/60 hover:bg-teal-900/80 text-teal-300 text-[11px] font-bold border border-teal-500/50 shadow active:scale-95 transition-all flex items-center gap-1"
+                title="Thêm 5 khán giả ngẫu nhiên"
+              >
+                <span>+5</span>
+                <span>Khách</span>
+              </button>
+              <button
+                onClick={() => handleAddBatchPlayers(10)}
+                className="px-2.5 py-1.5 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 text-[11px] font-bold border border-indigo-500/50 shadow active:scale-95 transition-all flex items-center gap-1"
+                title="Thêm 10 khán giả đoàn du khách"
+              >
+                <span>+10</span>
+                <span>Đoàn khách</span>
+              </button>
+              <button
+                onClick={() => handleFillAudience(31)}
+                className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-600 hover:brightness-110 text-slate-950 font-black text-[11px] border border-yellow-300 shadow-[0_0_12px_rgba(245,158,11,0.5)] active:scale-95 transition-all flex items-center gap-1"
+                title="Tự động lấp đầy toàn bộ 31 ghế ngồi trên sân khấu"
+              >
+                <span>🔥</span>
+                <span>Đầy Hội Trường (31 Ghế)</span>
+              </button>
+              <button
+                onClick={handleClearAudience}
+                className="px-2.5 py-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 text-[11px] font-semibold border border-rose-800/50 shadow active:scale-95 transition-all flex items-center gap-1"
+                title="Xóa hết khán giả và vé ván này"
+              >
+                <span>🧹</span>
+                <span>Xóa hết khách</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Form cấp vé cho người xem tùy ý theo tên */}
+          <div className="flex items-center gap-2 pt-1">
             <input
               type="text"
               value={newPlayerName}
               onChange={(e) => setNewPlayerName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddNewPlayer()}
-              placeholder="Nhập tên người xem TikTok (VD: @linh_dan, Anh Ba)..."
+              placeholder="Nhập tên người xem TikTok (VD: @linh_dan, Anh Ba, Bé Bắp)..."
               className="flex-1 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
             />
             <button
@@ -556,24 +694,7 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
               className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:brightness-110 text-white font-bold text-xs shadow active:scale-95 transition-all whitespace-nowrap flex items-center gap-1"
             >
               <span>+</span>
-              <span>Cấp vé cho khán giả</span>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => lotoEngine.seedInitialTickets(4)}
-              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 text-[11px] font-semibold border border-slate-700 shadow active:scale-95 transition-all"
-              title="Cấp 4 vé mẫu ban đầu"
-            >
-              🎲 Cấp 4 vé mẫu
-            </button>
-            <button
-              onClick={() => lotoEngine.clearAllTickets()}
-              className="px-2.5 py-1.5 rounded-lg bg-rose-950/50 hover:bg-rose-900/60 text-rose-300 text-[11px] font-semibold border border-rose-800/50 shadow active:scale-95 transition-all"
-              title="Xóa hết vé ván này"
-            >
-              🧹 Xóa hết vé
+              <span>Cấp vé cho khán giả này</span>
             </button>
           </div>
         </div>
@@ -1155,11 +1276,28 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({ onAddDevot
           <span>Dừng tiếng</span>
         </button>
         <button
-          onClick={handleSimulatePlayer}
-          className="px-3 py-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 text-[11px] font-bold border border-emerald-500/50 shadow flex items-center gap-1 active:scale-95 transition-all"
+          onClick={() => handleAddBatchPlayers(1)}
+          className="px-2.5 py-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 text-[11px] font-bold border border-emerald-500/50 shadow flex items-center gap-1 active:scale-95 transition-all"
+          title="Thêm 1 khán giả"
         >
           <span>👥</span>
-          <span>+ Thêm người chơi giả lập</span>
+          <span>+1 Khách</span>
+        </button>
+        <button
+          onClick={() => handleAddBatchPlayers(5)}
+          className="px-2.5 py-1.5 rounded-lg bg-teal-950/60 hover:bg-teal-900/80 text-teal-300 text-[11px] font-bold border border-teal-500/50 shadow flex items-center gap-1 active:scale-95 transition-all"
+          title="Thêm nhóm 5 khán giả"
+        >
+          <span>👥</span>
+          <span>+5 Khách</span>
+        </button>
+        <button
+          onClick={() => handleFillAudience(31)}
+          className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-600 to-yellow-500 hover:brightness-110 text-slate-950 font-black text-[11px] border border-yellow-200 shadow-[0_0_10px_rgba(245,158,11,0.5)] flex items-center gap-1 active:scale-95 transition-all"
+          title="Tự động lấp đầy toàn bộ 31 chỗ ngồi trên sân khấu"
+        >
+          <span>🎪</span>
+          <span>Đầy Hội Trường (31 Ghế)</span>
         </button>
         <button
           onClick={handleSimulateWin}
