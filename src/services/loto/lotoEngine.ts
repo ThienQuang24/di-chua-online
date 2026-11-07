@@ -240,12 +240,16 @@ class LotoEngineService {
     this.notify();
   }
 
-  public clearAllTickets() {
+  public clearAllTickets(skipServerSync: boolean = false) {
     this.tickets.clear();
     this.screenConfig.pinnedUsernames = [];
     this.showSpotlightTicket = false;
     this.spotlightTicketUser = null;
-    this.notify();
+    if (skipServerSync) {
+      this.notifyLocalOnly();
+    } else {
+      this.notify();
+    }
   }
 
   public rerollTicket(username: string) {
@@ -275,7 +279,7 @@ class LotoEngineService {
     for (let i = 0; i < Math.min(count, defaultViewers.length); i++) {
       const v = defaultViewers[i];
       if (!this.tickets.has(v.user)) {
-        this.issueTicket(v.user, v.name, v.avatar);
+        this.issueTicket(v.user, v.name, v.avatar, undefined, true);
       }
     }
   }
@@ -317,18 +321,120 @@ class LotoEngineService {
           currentChant: this.currentChant,
           isSpinning: this.isSpinning,
           lastWinner: this.lastWinner,
+          spotlightTicketUser: this.spotlightTicketUser,
+          showSpotlightTicket: this.showSpotlightTicket,
+          currentPrize: this.currentPrize,
           danceStyle: this.danceStyle,
           danceDonorName: this.danceDonorName,
           danceGiftName: this.danceGiftName,
+          customVideoUrl: this.customVideoUrl,
+          isGreenScreen: this.isGreenScreen,
         }),
       }).catch(() => {});
     }, 100);
   }
 
-  private notify() {
+  private notifyLocalOnly() {
     const state = this.getState();
     this.listeners.forEach((l) => l(state));
+  }
+
+  private notify() {
+    this.notifyLocalOnly();
     this.syncToServer();
+  }
+
+  // Apply state received from SSE (e.g. when Streamer controls from another tab) without echoing back to server
+  public applyRemoteState(data: any) {
+    if (!data) return;
+    let roundChanged = false;
+    if (typeof data.roundId === 'number' && data.roundId !== this.roundId) {
+      this.roundId = data.roundId;
+      this.calledNumbers = [];
+      this.currentNumber = null;
+      this.lastWinner = null;
+      roundChanged = true;
+    }
+
+    const prevNumber = this.currentNumber;
+    const prevSpinning = this.isSpinning;
+
+    if (typeof data.isSpinning === 'boolean') {
+      this.isSpinning = data.isSpinning;
+    }
+    if (typeof data.currentChant === 'string') {
+      this.currentChant = data.currentChant;
+    }
+    if (data.currentNumber !== undefined) {
+      this.currentNumber = data.currentNumber;
+    }
+
+    if (Array.isArray(data.calledNumbers)) {
+      this.calledNumbers = data.calledNumbers;
+      this.tickets.forEach((ticket) => {
+        for (let r = 0; r < 3; r++) {
+          for (let c = 0; c < 9; c++) {
+            const cell = ticket.grid[r][c];
+            cell.isMarked = cell.val !== null && this.calledNumbers.includes(cell.val);
+          }
+        }
+        this.recalcTicketStatus(ticket);
+      });
+    } else if (roundChanged) {
+      this.tickets.forEach((ticket) => {
+        for (let r = 0; r < 3; r++) {
+          for (let c = 0; c < 9; c++) {
+            ticket.grid[r][c].isMarked = false;
+          }
+        }
+        this.recalcTicketStatus(ticket);
+      });
+    }
+
+    if (data.spotlightTicketUser !== undefined) {
+      this.spotlightTicketUser = data.spotlightTicketUser;
+    }
+    if (typeof data.showSpotlightTicket === 'boolean') {
+      this.showSpotlightTicket = data.showSpotlightTicket;
+    }
+    if (typeof data.currentPrize === 'string') {
+      this.currentPrize = data.currentPrize;
+    }
+    if (data.danceStyle !== undefined) {
+      this.danceStyle = data.danceStyle;
+      this.danceDonorName = data.danceDonorName ?? undefined;
+      this.danceGiftName = data.danceGiftName ?? undefined;
+      this.customVideoUrl = data.customVideoUrl ?? undefined;
+      this.isGreenScreen = data.isGreenScreen ?? undefined;
+    }
+
+    const prevWinner = this.lastWinner;
+    if (data.lastWinner !== undefined) {
+      this.lastWinner = data.lastWinner;
+      if (
+        this.lastWinner &&
+        (!prevWinner ||
+          prevWinner.username !== this.lastWinner.username ||
+          prevWinner.wonAt !== this.lastWinner.wonAt)
+      ) {
+        const t = this.getTicketForUser(this.lastWinner.username);
+        if (t) t.hasWon = true;
+        this.onWinCallbacks.forEach((cb) => cb(this.lastWinner!));
+      }
+    }
+
+    if (
+      this.currentNumber !== null &&
+      !this.isSpinning &&
+      (this.currentNumber !== prevNumber || prevSpinning)
+    ) {
+      const { verse, spokenText } = getLotoChant(this.currentNumber);
+      this.onNumberCalledCallbacks.forEach((cb) =>
+        cb(this.currentNumber!, this.currentChant || verse, spokenText)
+      );
+    }
+
+    this.notifyLocalOnly();
   }
 
   // Set winner triggered from external mobile companion device
@@ -424,22 +530,54 @@ class LotoEngineService {
   }
 
   // Issue or get ticket for a viewer
-  public issueTicket(username: string, displayName: string, avatarUrl: string): LotoTicket {
+  public issueTicket(
+    username: string,
+    displayName: string,
+    avatarUrl: string,
+    externalGrid?: any[][],
+    skipServerSync: boolean = false
+  ): LotoTicket {
     const key = username.toLowerCase();
     const existing = this.tickets.get(key);
     if (existing) {
       if (displayName) existing.displayName = displayName;
       if (avatarUrl) existing.avatarUrl = avatarUrl;
+      if (Array.isArray(externalGrid) && externalGrid.length === 3) {
+        existing.grid = externalGrid.map((row) =>
+          row.map((cell) => {
+            const val = typeof cell === 'object' && cell !== null ? cell.val : cell;
+            return {
+              val: typeof val === 'number' ? val : null,
+              isMarked: typeof val === 'number' && this.calledNumbers.includes(val),
+            };
+          })
+        );
+        this.recalcTicketStatus(existing);
+        this.notifyLocalOnly();
+      }
       return existing;
     }
 
-    const rawGrid = generateVietnameseLotoCard();
-    const grid: LotoCell[][] = rawGrid.map((row) =>
-      row.map((val) => ({
-        val,
-        isMarked: val !== null && this.calledNumbers.includes(val),
-      }))
-    );
+    let grid: LotoCell[][];
+    if (Array.isArray(externalGrid) && externalGrid.length === 3) {
+      grid = externalGrid.map((row) =>
+        row.map((cell) => {
+          const val = typeof cell === 'object' && cell !== null ? cell.val : cell;
+          return {
+            val: typeof val === 'number' ? val : null,
+            isMarked: typeof val === 'number' && this.calledNumbers.includes(val),
+          };
+        })
+      );
+    } else {
+      const rawGrid = generateVietnameseLotoCard();
+      grid = rawGrid.map((row) =>
+        row.map((val) => ({
+          val,
+          isMarked: val !== null && this.calledNumbers.includes(val),
+        }))
+      );
+    }
 
     const ticket: LotoTicket = {
       id: `ticket_${this.roundId}_${key}`,
@@ -455,7 +593,27 @@ class LotoEngineService {
 
     this.recalcTicketStatus(ticket);
     this.tickets.set(key, ticket);
-    this.notify();
+    if (skipServerSync) {
+      this.notifyLocalOnly();
+    } else {
+      this.notify();
+      if (typeof window !== 'undefined') {
+        fetch('/api/loto/add-players', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            players: [
+              {
+                username: ticket.username,
+                displayName: ticket.displayName,
+                avatarUrl: ticket.avatarUrl,
+                grid: ticket.grid,
+              },
+            ],
+          }),
+        }).catch(() => {});
+      }
+    }
     return ticket;
   }
 

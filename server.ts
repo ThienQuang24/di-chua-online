@@ -102,9 +102,14 @@ interface ServerLotoState {
   currentChant: string;
   isSpinning: boolean;
   lastWinner: any | null;
+  spotlightTicketUser?: string | null;
+  showSpotlightTicket?: boolean;
+  currentPrize?: string;
   danceStyle?: string | null;
   danceDonorName?: string | null;
   danceGiftName?: string | null;
+  customVideoUrl?: string | null;
+  isGreenScreen?: boolean;
 }
 
 const serverLotoState: ServerLotoState = {
@@ -114,9 +119,14 @@ const serverLotoState: ServerLotoState = {
   currentChant: 'Đêm hội Lô Tô đang mở màn, xin chúc cả nhà may mắn!',
   isSpinning: false,
   lastWinner: null,
+  spotlightTicketUser: null,
+  showSpotlightTicket: false,
+  currentPrize: 'Thẻ cào điện thoại 50.000đ',
   danceStyle: null,
   danceDonorName: null,
   danceGiftName: null,
+  customVideoUrl: null,
+  isGreenScreen: false,
 };
 
 const serverLotoTickets: Map<string, ServerLotoTicket> = new Map();
@@ -225,14 +235,15 @@ app.get('/api/tiktok/events', (req, res) => {
   if (lastRateControl) res.write(`event: control\ndata: ${JSON.stringify(lastRateControl)}\n\n`);
 
   if (lastNameControl) res.write(`event: control\ndata: ${JSON.stringify(lastNameControl)}\n\n`);
-  if (serverLotoState.danceStyle) res.write(`event: loto_update\ndata: ${JSON.stringify(serverLotoState)}\n\n`);
+  res.write(`event: loto_update\ndata: ${JSON.stringify(serverLotoState)}\n\n`);
 
-  // Send all active loto players to new stage connections
+  // Send all active loto players (including their exact ticket grids) to new stage connections
   if (serverLotoTickets.size > 0) {
     const list = Array.from(serverLotoTickets.values()).map((t) => ({
       username: t.username,
       displayName: t.displayName,
       avatarUrl: t.avatarUrl,
+      grid: t.grid,
     }));
     res.write(`event: loto_initial_players\ndata: ${JSON.stringify(list)}\n\n`);
   }
@@ -316,7 +327,12 @@ app.get('/api/loto/ticket', (req, res) => {
     };
     recalcTicketStatus(ticket, serverLotoState.calledNumbers);
     serverLotoTickets.set(key, ticket);
-    broadcastSSE('loto_new_player', { username: ticket.username, displayName: ticket.displayName });
+    broadcastSSE('loto_new_player', {
+      username: ticket.username,
+      displayName: ticket.displayName,
+      avatarUrl: ticket.avatarUrl,
+      grid: ticket.grid,
+    });
   } else {
     recalcTicketStatus(ticket, serverLotoState.calledNumbers);
   }
@@ -335,13 +351,31 @@ app.get('/api/loto/ticket', (req, res) => {
   });
 });
 
-// Streamer synchronizes game state to server & broadcasts to all mobile companions
+// Streamer synchronizes game state to server & broadcasts to all mobile companions and OBS stages
 app.post('/api/loto/sync', (req, res) => {
-  const { roundId, calledNumbers, currentNumber, currentChant, isSpinning, lastWinner, danceStyle, danceDonorName, danceGiftName } = req.body;
+  const {
+    roundId,
+    calledNumbers,
+    currentNumber,
+    currentChant,
+    isSpinning,
+    lastWinner,
+    spotlightTicketUser,
+    showSpotlightTicket,
+    currentPrize,
+    danceStyle,
+    danceDonorName,
+    danceGiftName,
+    customVideoUrl,
+    isGreenScreen,
+  } = req.body;
   if (typeof roundId === 'number') {
     if (roundId !== serverLotoState.roundId) {
-      // New round started: clear old tickets or re-roll
-      serverLotoTickets.clear();
+      // New round started: reset marks on existing tickets
+      serverLotoTickets.forEach((t) => {
+        t.grid.forEach((row) => row.forEach((c) => { c.isMarked = false; }));
+        recalcTicketStatus(t, []);
+      });
     }
     serverLotoState.roundId = roundId;
   }
@@ -350,9 +384,14 @@ app.post('/api/loto/sync', (req, res) => {
   if (typeof currentChant === 'string') serverLotoState.currentChant = currentChant;
   if (typeof isSpinning === 'boolean') serverLotoState.isSpinning = isSpinning;
   if (lastWinner !== undefined) serverLotoState.lastWinner = lastWinner;
+  if (spotlightTicketUser !== undefined) serverLotoState.spotlightTicketUser = spotlightTicketUser;
+  if (typeof showSpotlightTicket === 'boolean') serverLotoState.showSpotlightTicket = showSpotlightTicket;
+  if (typeof currentPrize === 'string') serverLotoState.currentPrize = currentPrize;
   if (danceStyle !== undefined) serverLotoState.danceStyle = danceStyle;
   if (danceDonorName !== undefined) serverLotoState.danceDonorName = danceDonorName;
   if (danceGiftName !== undefined) serverLotoState.danceGiftName = danceGiftName;
+  if (customVideoUrl !== undefined) serverLotoState.customVideoUrl = customVideoUrl;
+  if (typeof isGreenScreen === 'boolean') serverLotoState.isGreenScreen = isGreenScreen;
 
   // Recalculate all issued tickets
   serverLotoTickets.forEach((t) => recalcTicketStatus(t, serverLotoState.calledNumbers));
@@ -364,10 +403,15 @@ app.post('/api/loto/sync', (req, res) => {
     currentChant: serverLotoState.currentChant,
     isSpinning: serverLotoState.isSpinning,
     lastWinner: serverLotoState.lastWinner,
+    spotlightTicketUser: serverLotoState.spotlightTicketUser,
+    showSpotlightTicket: serverLotoState.showSpotlightTicket,
+    currentPrize: serverLotoState.currentPrize,
     activeTicketCount: serverLotoTickets.size,
     danceStyle: serverLotoState.danceStyle,
     danceDonorName: serverLotoState.danceDonorName,
     danceGiftName: serverLotoState.danceGiftName,
+    customVideoUrl: serverLotoState.customVideoUrl,
+    isGreenScreen: serverLotoState.isGreenScreen,
   });
 
   return res.json({ success: true });
@@ -382,13 +426,26 @@ app.post('/api/loto/add-players', (req, res) => {
       if (!key) return;
       let ticket = serverLotoTickets.get(key);
       if (!ticket) {
-        const rawGrid = generateVietnameseLotoCard();
-        const grid: ServerLotoCell[][] = rawGrid.map((row) =>
-          row.map((val) => ({
-            val,
-            isMarked: val !== null && serverLotoState.calledNumbers.includes(val),
-          }))
-        );
+        let grid: ServerLotoCell[][];
+        if (Array.isArray(p.grid) && p.grid.length === 3) {
+          grid = p.grid.map((row: any[]) =>
+            row.map((cell: any) => {
+              const val = typeof cell === 'object' && cell !== null ? cell.val : cell;
+              return {
+                val: typeof val === 'number' ? val : null,
+                isMarked: typeof val === 'number' && serverLotoState.calledNumbers.includes(val),
+              };
+            })
+          );
+        } else {
+          const rawGrid = generateVietnameseLotoCard();
+          grid = rawGrid.map((row) =>
+            row.map((val) => ({
+              val,
+              isMarked: val !== null && serverLotoState.calledNumbers.includes(val),
+            }))
+          );
+        }
         ticket = {
           id: `ticket_${serverLotoState.roundId}_${key}`,
           username: p.username,
@@ -406,6 +463,7 @@ app.post('/api/loto/add-players', (req, res) => {
           username: ticket.username,
           displayName: ticket.displayName,
           avatarUrl: ticket.avatarUrl,
+          grid: ticket.grid,
         });
       }
     });

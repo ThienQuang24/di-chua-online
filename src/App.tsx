@@ -269,10 +269,10 @@ function MainApp() {
           makeDevotee('Bao_Ngoc', 2, { displayName: 'Bảo Ngọc' }),
           makeDevotee('Hoang_Nam', 3, { displayName: 'Hoàng Nam' }),
         ]);
-        lotoEngine.issueTicket('Huong_Giang', 'Hương Giang', '');
-        lotoEngine.issueTicket('Minh_Tuan', 'Minh Tuấn', '');
-        lotoEngine.issueTicket('Bao_Ngoc', 'Bảo Ngọc', '');
-        lotoEngine.issueTicket('Hoang_Nam', 'Hoàng Nam', '');
+        lotoEngine.issueTicket('Huong_Giang', 'Hương Giang', '', undefined, true);
+        lotoEngine.issueTicket('Minh_Tuan', 'Minh Tuấn', '', undefined, true);
+        lotoEngine.issueTicket('Bao_Ngoc', 'Bảo Ngọc', '', undefined, true);
+        lotoEngine.issueTicket('Hoang_Nam', 'Hoàng Nam', '', undefined, true);
       }
     }
   }, [currentTheme]);
@@ -776,20 +776,7 @@ function MainApp() {
       eventSource.addEventListener('loto_update', (e) => {
         try {
           const data = JSON.parse(e.data);
-          if (data.danceStyle !== undefined) {
-            if (data.danceStyle) {
-              lotoEngine.triggerDance(
-                data.danceStyle,
-                15000,
-                data.danceDonorName,
-                data.danceGiftName,
-                data.customVideoUrl,
-                data.isGreenScreen
-              );
-            } else {
-              lotoEngine.stopDance();
-            }
-          }
+          lotoEngine.applyRemoteState(data);
         } catch (err) {
           console.error('SSE loto_update parse error', err);
         }
@@ -858,7 +845,13 @@ function MainApp() {
       eventSource.addEventListener('loto_new_player', (e) => {
         try {
           const player = JSON.parse(e.data);
-          lotoEngine.issueTicket(player.username, player.displayName, player.avatarUrl || '');
+          lotoEngine.issueTicket(
+            player.username,
+            player.displayName,
+            player.avatarUrl || '',
+            player.grid,
+            true
+          );
           addOrUpdateDevotee(
             player.username,
             () => ({ displayName: player.displayName, avatarUrl: player.avatarUrl }),
@@ -874,7 +867,13 @@ function MainApp() {
           const list = JSON.parse(e.data);
           if (Array.isArray(list)) {
             list.forEach((p: any) => {
-              lotoEngine.issueTicket(p.username, p.displayName, p.avatarUrl || '');
+              lotoEngine.issueTicket(
+                p.username,
+                p.displayName,
+                p.avatarUrl || '',
+                p.grid,
+                true
+              );
               addOrUpdateDevotee(
                 p.username,
                 () => ({ displayName: p.displayName, avatarUrl: p.avatarUrl }),
@@ -888,7 +887,7 @@ function MainApp() {
       });
 
       eventSource.addEventListener('loto_clear_players', () => {
-        lotoEngine.clearAllTickets();
+        lotoEngine.clearAllTickets(true);
         setDevotees([]);
       });
     } catch (err) {

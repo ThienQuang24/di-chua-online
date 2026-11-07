@@ -249,14 +249,6 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({
     lotoEngine.issueTicket(cleanUser, raw, avatar);
     onAddDevotee?.(cleanUser, avatar);
     setNewPlayerName('');
-
-    fetch('/api/loto/add-players', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        players: [{ username: cleanUser, displayName: raw, avatarUrl: avatar }],
-      }),
-    }).catch(() => {});
   };
 
   const handleSimulatePlayer = () => {
@@ -266,7 +258,7 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({
   const handleAddBatchPlayers = (count: number) => {
     const existingTickets = lotoEngine.getTickets();
     const existingUsers = new Set(existingTickets.map((t) => t.username.toLowerCase()));
-    const addedList: Array<{ username: string; displayName: string; avatarUrl: string }> = [];
+    const addedList: Array<{ username: string; displayName: string; avatarUrl: string; grid: any[][] }> = [];
 
     for (let i = 0; i < count; i++) {
       const name = VIETNAMESE_NAMES[Math.floor(Math.random() * VIETNAMESE_NAMES.length)];
@@ -276,9 +268,9 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({
 
       if (!existingUsers.has(cleanUser)) {
         existingUsers.add(cleanUser);
-        lotoEngine.issueTicket(cleanUser, `${name}`, avatar);
+        const ticket = lotoEngine.issueTicket(cleanUser, `${name}`, avatar, undefined, true);
         onAddDevotee?.(cleanUser, avatar);
-        addedList.push({ username: cleanUser, displayName: `${name}`, avatarUrl: avatar });
+        addedList.push({ username: cleanUser, displayName: `${name}`, avatarUrl: avatar, grid: ticket.grid });
       }
     }
 
