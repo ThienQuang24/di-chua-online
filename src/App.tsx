@@ -510,14 +510,25 @@ function MainApp() {
           }
         }
       } else if (isPredictChan) {
+        if (!lotoEngine.getTicketForUser(cleanUser)) {
+          lotoEngine.issueTicket(cleanUser, cleanUser, avatarUrl);
+        }
         lotoEngine.submitPrediction(cleanUser, cleanUser, 'chan');
       } else if (isPredictLe) {
+        if (!lotoEngine.getTicketForUser(cleanUser)) {
+          lotoEngine.issueTicket(cleanUser, cleanUser, avatarUrl);
+        }
         lotoEngine.submitPrediction(cleanUser, cleanUser, 'le');
       } else if (isLayVe) {
         lotoEngine.issueTicket(cleanUser, cleanUser, avatarUrl);
         soundEngine.playLotusBloom(0.6);
         if (config.autoTts) {
           soundEngine.speak(`Đã cấp vé may mắn cho bạn ${formatUsernameForTts(cleanUser)}!`);
+        }
+      } else {
+        // Bất kỳ ai bình luận trong phòng Lô Tô đều được cấp vé tự động (nếu chưa có) để hiện nhân vật + bong bóng chat trên đầu
+        if (!lotoEngine.getTicketForUser(cleanUser)) {
+          lotoEngine.issueTicket(cleanUser, cleanUser, avatarUrl);
         }
       }
     } else if (currentTheme === 'nhau') {
@@ -536,12 +547,9 @@ function MainApp() {
       }
     }
 
-    const hasExistingTicket = currentTheme === 'loto' && lotoEngine.getTicketForUser(cleanUser) !== undefined;
     const allowNewDevotee =
       currentTheme === 'chua'
         ? isAdidaphat
-        : currentTheme === 'loto'
-        ? isLayVe || isKinhClaim || hasExistingTicket
         : true;
 
     addOrUpdateDevotee(
@@ -572,7 +580,7 @@ function MainApp() {
             : d
         )
       );
-    }, 4500);
+    }, 8000);
 
     if (isAdidaphat) {
       requestOffer(cleanUser, avatarUrl);
@@ -660,6 +668,10 @@ function MainApp() {
     if (action === 'loto_reset') lotoEngine.resetRound();
     if (action === 'loto_auto_spin') lotoEngine.setAutoSpin(text === '1' || text === 'true');
     if (action === 'loto_interval' && Number(text) > 0) lotoEngine.setSpinInterval(Number(text));
+    if (action === 'simulate_chat' && text) {
+      const chatUser = extra?.displayName || extra?.username || 'Khán giả';
+      handleAddComment(chatUser, text, extra?.avatarUrl || '');
+    }
     if (action === 'loto_dance') {
       const isStop = text === 'stop' || extra?.danceStyle === 'stop';
       if (!isStop) {
@@ -700,6 +712,12 @@ function MainApp() {
   const handlePlayGong = () => {
     soundEngine.playMuoGong(0.85);
   };
+
+  useEffect(() => {
+    return lotoEngine.onBotChat((username, displayName, comment, avatarUrl) => {
+      handlersRef.current.handleAddComment(displayName || username, comment, avatarUrl);
+    });
+  }, []);
 
 
   // Latest handlers via ref so the SSE connection opens once instead of on every render
@@ -1138,6 +1156,10 @@ function MainApp() {
                   }
                   onTriggerGift={handleTriggerLotoGift}
                   onResetCrowd={handleResetCrowd}
+                  tikTokStatus={tikTokStatus}
+                  onConnectTikTok={handleConnectTikTok}
+                  onDisconnectTikTok={handleDisconnectTikTok}
+                  onSimulateChat={(name, text, avatar) => handleAddComment(name, text, avatar || '')}
                 />
               )}
               {currentTheme === 'nhau' && (
@@ -1147,16 +1169,18 @@ function MainApp() {
                   }
                 />
               )}
-              <div className="h-[680px]">
-                <StreamerDeck
-                  config={config}
-                  onSaveChannelName={(name) => sendControl('setName', name)}
-                  onUpdateConfig={(updates) => setConfig((prev) => ({ ...prev, ...updates }))}
-                  tikTokStatus={tikTokStatus}
-                  onConnectTikTok={handleConnectTikTok}
-                  onDisconnectTikTok={handleDisconnectTikTok}
-                />
-              </div>
+              {currentTheme !== 'loto' && (
+                <div className="h-[680px]">
+                  <StreamerDeck
+                    config={config}
+                    onSaveChannelName={(name) => sendControl('setName', name)}
+                    onUpdateConfig={(updates) => setConfig((prev) => ({ ...prev, ...updates }))}
+                    tikTokStatus={tikTokStatus}
+                    onConnectTikTok={handleConnectTikTok}
+                    onDisconnectTikTok={handleDisconnectTikTok}
+                  />
+                </div>
+              )}
             </div>
           </div>
         ) : config.viewMode === 'stage_only' ? (
@@ -1213,6 +1237,10 @@ function MainApp() {
                 }
                 onTriggerGift={handleTriggerLotoGift}
                 onResetCrowd={handleResetCrowd}
+                tikTokStatus={tikTokStatus}
+                onConnectTikTok={handleConnectTikTok}
+                onDisconnectTikTok={handleDisconnectTikTok}
+                onSimulateChat={(name, text, avatar) => handleAddComment(name, text, avatar || '')}
               />
             )}
             {currentTheme === 'nhau' && (
@@ -1222,16 +1250,18 @@ function MainApp() {
                 }
               />
             )}
-            <div className="h-[750px]">
-              <StreamerDeck
-                config={config}
-                onSaveChannelName={(name) => sendControl('setName', name)}
-                onUpdateConfig={(updates) => setConfig((prev) => ({ ...prev, ...updates }))}
-                tikTokStatus={tikTokStatus}
-                onConnectTikTok={handleConnectTikTok}
-                onDisconnectTikTok={handleDisconnectTikTok}
-              />
-            </div>
+            {currentTheme !== 'loto' && (
+              <div className="h-[750px]">
+                <StreamerDeck
+                  config={config}
+                  onSaveChannelName={(name) => sendControl('setName', name)}
+                  onUpdateConfig={(updates) => setConfig((prev) => ({ ...prev, ...updates }))}
+                  tikTokStatus={tikTokStatus}
+                  onConnectTikTok={handleConnectTikTok}
+                  onDisconnectTikTok={handleDisconnectTikTok}
+                />
+              </div>
+            )}
           </div>
         )}
       </main>

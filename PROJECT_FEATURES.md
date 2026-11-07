@@ -199,25 +199,31 @@ Bạn có thể khởi động nhanh bằng cách bấm đúp vào 1 trong 3 fil
 
 ---
 
-### Bước 4: Mở Bảng Điều Khiển Streamer & Kết Nối TikTok
-1. Mở trình duyệt web bất kỳ trên máy tính, truy cập:  
-   👉 `http://localhost:3000/?view=streamer` (hoặc `http://localhost:3000`)
-2. Ở thanh công cụ trên cùng:
-   * Nhập **Tên tài khoản TikTok** của bạn (ví dụ: `my_tiktok_id`, không cần gõ `@`).
-   * Bấm nút **[Kết Nối Live]**.
-3. Khi đèn trạng thái chuyển sang **Xanh lá (Đã kết nối)**:
-   * Toàn bộ bình luận, lượt tặng quà, lượt thả tim của người xem trên TikTok sẽ đổ trực tiếp vào game trong tích tắc!
+### Bước 4: Tự Động Live 1-Click & Treo Máy 24/7 (`Tab 2: Tự Động Live & OBS`)
+1. Mở trình duyệt web trên máy tính, truy cập `http://localhost:3000`.
+2. Bấm vào **Tab 2: `🚀 2. Tự Động Live & OBS`** trong Bảng Điều Khiển Lô Tô:
+   * Nhập **ID tài khoản TikTok** của bạn (ví dụ: `ganh_hat_loto`, không cần `@`).
+   * Bấm nút **`🚀 BẬT TỰ ĐỘNG LIVE TOÀN DIỆN`** (hoặc bảo trợ lý AI: *"Live TikTok cho tài khoản @..."*).
+3. Hệ thống sẽ **tự động thực hiện trọn gói**:
+   * **Tự động mở cửa sổ Sân Khấu 9:16** (hoặc tự động kết nối **OBS WebSocket cổng 4455** để tạo nguồn `San Khau Lo To 9:16` 1080x1920, nạp RTMP Stream Key và bấm **Start Stream** trên OBS).
+   * **Tự động canh sóng TikTok (`Auto-Watch 15s`)**: Kiểm tra phòng Live mỗi 15 giây, ngay khi tài khoản của bạn bấm *Phát trực tiếp (Go LIVE)* trên TikTok là tự động bắt sóng comment/quà tặng tức thì.
+   * **Tự động bật Chế Độ Treo Máy 24/7 (`🤖 Treo Tự Động 24/7`)**:
+     * Tự động quay số mỗi 18 giây.
+     * Khi có người trúng Kinh (hoặc hết 90 số), tự động vinh danh 15 giây rồi **tự động qua Ván mới & phát lại vé mới** (không bao giờ bị đứng ván khi treo máy).
+     * Tự động bật **Bot Khán Giả Giữ Nhiệt**: lấp ghế khán giả và định kỳ hiện **Bong Bóng Chat (`💬 ...`)** trên đầu nhân vật.
 
 ---
 
 ## 8. BẢNG TRA CỨU LỆNH CHAT DÀNH CHO NGƯỜI XEM
 
-Người xem khi vào livestream chỉ cần gõ bình luận vào ô chat TikTok:
+Người xem khi vào livestream chỉ cần gõ bình luận vào ô chat TikTok (mọi bình luận đều sẽ hiển thị thành **Bong Bóng Chat `💬`** ngay trên đầu nhân vật của người đó trong 8 giây):
 
 | Lệnh Bình Luận | Chế Độ Áp Dụng | Hành Động Trong Game |
 |---|---|---|
 | `layve`, `lấy vé`, `ve`, `vé`, `xin vé`, `dò vé` | 🎪 Lô Tô | Hệ thống tự cấp vé số Lô Tô 9x3, xếp chỗ ngồi vào hội trường và tự động dò số |
-| `kinh`, `kinh rồi`, `bingo` | 🎪 Lô Tô | Báo hiệu trúng thưởng nếu vé đã đủ 5 số thẳng hàng |
+| `kinh`, `kinh rồi`, `bingo` | 🎪 Lô Tô | Báo hiệu trúng thưởng nếu vé đủ 5 số 1 hàng; nếu chưa đủ sẽ bật **Còi Báo Động Kinh Giả & Phạt Múa Quạt** |
+| `C`, `chẵn` hoặc `L`, `lẻ` | 🎪 Lô Tô | Tham gia Mini-game **Đoán Số Tiếp Theo Chẵn hay Lẻ** ngay dưới lồng cầu |
+| *Bất kỳ câu chat nào khác* | 🎪 Lô Tô | Tự động cấp ghế ngồi (nếu chưa có) và hiện **Bong Bóng Chat** nổi lên ngay trên đầu nhân vật 3D |
 | `dzo`, `zo`, `123 dzo`, `uong`, `can ly` | 🍻 Quán Nhậu | Toàn bộ quán nhậu cùng giơ bia hô to *"1 2 3 DÔ!"* |
 | `cmsn [Tên]`, `sinh nhật [Tên]`, `snvv` | 🍻 Quán Nhậu | Tổ chức sinh nhật: thắp nến bánh kem, đốt pháo sáng, bật nhạc chúc mừng |
 | `adidaphat`, `nam mo a di da phat` | 🪷 Đi Chùa | Nhân vật bước lên bậc tam cấp, dâng hương và lạy Phật 3 lạy |

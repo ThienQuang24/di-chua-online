@@ -270,13 +270,32 @@ export const LotoFairCrowd: React.FC<LotoFairCrowdProps> = ({
               left: `${seat.x}%`,
               top: `${seat.y}%`,
               transform: `translate(-50%, -100%) scale(${seat.scale})`,
-              zIndex: isWinner ? 60 : isFakeKinhOffender ? 58 : isWaitingKin ? 50 : Math.round(seat.y * 10),
+              zIndex: isWinner
+                ? 60
+                : isFakeKinhOffender
+                ? 58
+                : devotee.activeComment
+                ? 56
+                : isWaitingKin
+                ? 50
+                : Math.round(seat.y * 10),
             }}
             initial={false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            {/* 1. HUY HIỆU CẢM XÚC TRÊN ĐẦU (CHỜ KINH / DÍNH SỐ / KINH / PHẠT KINH GIẢ / CHAT) */}
+            {/* 0. BONG BÓNG CHAT TRỰC TIẾP TRÊN ĐẦU NHÂN VẬT (LUÔN HIỂN THỊ KHI KHÁN GIẢ BÌNH LUẬN) */}
+            {devotee.activeComment && (
+              <div className="relative flex flex-col items-center mb-1 z-40 animate-bounce">
+                <div className="px-2 py-0.5 rounded-xl bg-white text-slate-950 border-2 border-amber-400 text-[8px] font-extrabold max-w-[115px] truncate shadow-[0_3px_10px_rgba(0,0,0,0.85)] flex items-center gap-1">
+                  <span className="text-[8px] shrink-0">💬</span>
+                  <span className="truncate">{devotee.activeComment}</span>
+                </div>
+                <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] border-t-amber-400 -mt-[1px]" />
+              </div>
+            )}
+
+            {/* 1. HUY HIỆU CẢM XÚC TRÊN ĐẦU (CHỜ KINH / DÍNH SỐ / KINH / PHẠT KINH GIẢ) */}
             <div className="flex flex-col items-center mb-0.5 z-30">
               {isWinner ? (
                 <span className="px-2 py-0.5 rounded-full bg-red-600 text-[8px] font-black text-white shadow-[0_0_12px_rgba(239,68,68,0.9)] animate-bounce whitespace-nowrap">
@@ -303,10 +322,6 @@ export const LotoFairCrowd: React.FC<LotoFairCrowdProps> = ({
               ) : justMatched ? (
                 <span className="px-1.5 py-0.5 rounded-full bg-emerald-500 border border-emerald-300 text-[7px] font-black text-slate-950 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse whitespace-nowrap">
                   🎯 Dính số!
-                </span>
-              ) : devotee.activeComment ? (
-                <span className="px-1.5 py-0.5 rounded-lg bg-black/85 border border-amber-500/50 text-[7.5px] text-amber-200 truncate max-w-[85px] shadow">
-                  {devotee.activeComment}
                 </span>
               ) : null}
             </div>

@@ -120,6 +120,9 @@ export interface LotoState {
   predictionSummary: LotoPredictionSummary;
   showPredictionWidget: boolean;
   lastSavedAt: number;
+  autoResetOnWin: boolean;
+  autoNextRoundCountdown: number | null;
+  autoBotCrowd: boolean;
 }
 
 // Generate a authentic Vietnamese Lô Tô card: 3 rows, 9 columns.
@@ -223,11 +226,17 @@ class LotoEngineService {
   private lastPredictionResult: LotoPredictionSummary['lastResult'] = null;
   private showPredictionWidget: boolean = true;
   private lastSavedAt: number = Date.now();
+  private autoResetOnWin: boolean = true;
+  private autoNextRoundCountdown: number | null = null;
+  private nextRoundInterval: ReturnType<typeof setInterval> | null = null;
+  private autoBotCrowd: boolean = false;
+  private botCrowdInterval: ReturnType<typeof setInterval> | null = null;
 
   private listeners: Set<(state: LotoState) => void> = new Set();
   private onNumberCalledCallbacks: Set<(num: number, chant: string, spokenText: string) => void> = new Set();
   private onWinCallbacks: Set<(winner: LotoWinner) => void> = new Set();
   private onFakeKinhCallbacks: Set<(fakeEvent: LotoFakeKinhEvent) => void> = new Set();
+  private onBotChatCallbacks: Set<(username: string, displayName: string, comment: string, avatarUrl: string) => void> = new Set();
 
   constructor() {
     // Start with auto-spin disabled until stream begins or owner turns it on
@@ -923,7 +932,135 @@ class LotoEngineService {
       predictionSummary: this.getPredictionSummary(),
       showPredictionWidget: this.showPredictionWidget,
       lastSavedAt: this.lastSavedAt,
+      autoResetOnWin: this.autoResetOnWin,
+      autoNextRoundCountdown: this.autoNextRoundCountdown,
+      autoBotCrowd: this.autoBotCrowd,
     };
+  }
+
+  public onBotChat(cb: (username: string, displayName: string, comment: string, avatarUrl: string) => void) {
+    this.onBotChatCallbacks.add(cb);
+    return () => {
+      this.onBotChatCallbacks.delete(cb);
+    };
+  }
+
+  public setAutoResetOnWin(enabled: boolean) {
+    this.autoResetOnWin = enabled;
+    if (!enabled && this.nextRoundInterval) {
+      clearInterval(this.nextRoundInterval);
+      this.nextRoundInterval = null;
+      this.autoNextRoundCountdown = null;
+    } else if (enabled && this.isAutoSpin && (this.lastWinner || this.calledNumbers.length >= 90)) {
+      this.scheduleAutoNextRound();
+    }
+    this.notify();
+  }
+
+  private scheduleAutoNextRound(seconds: number = 15) {
+    if (!this.isAutoSpin || !this.autoResetOnWin) return;
+    if (this.nextRoundInterval) {
+      clearInterval(this.nextRoundInterval);
+      this.nextRoundInterval = null;
+    }
+    this.autoNextRoundCountdown = seconds;
+    this.notify();
+    this.nextRoundInterval = setInterval(() => {
+      if (!this.isAutoSpin || !this.autoResetOnWin) {
+        if (this.nextRoundInterval) clearInterval(this.nextRoundInterval);
+        this.nextRoundInterval = null;
+        this.autoNextRoundCountdown = null;
+        this.notify();
+        return;
+      }
+      if (this.autoNextRoundCountdown !== null && this.autoNextRoundCountdown > 1) {
+        this.autoNextRoundCountdown -= 1;
+        this.notifyLocalOnly();
+      } else {
+        if (this.nextRoundInterval) clearInterval(this.nextRoundInterval);
+        this.nextRoundInterval = null;
+        this.autoNextRoundCountdown = null;
+        this.resetRound();
+      }
+    }, 1000);
+  }
+
+  public setAutoBotCrowd(enabled: boolean) {
+    this.autoBotCrowd = enabled;
+    if (this.botCrowdInterval) {
+      clearInterval(this.botCrowdInterval);
+      this.botCrowdInterval = null;
+    }
+    if (enabled) {
+      this.triggerRandomBotChat();
+      this.botCrowdInterval = setInterval(() => {
+        if (!this.autoBotCrowd) return;
+        this.triggerRandomBotChat();
+      }, 7500);
+    }
+    this.notify();
+  }
+
+  public triggerRandomBotChat(customUser?: string, customComment?: string) {
+    const botPool = [
+      { user: 'anh_ba_sg', name: 'Anh Ba Sài Gòn', avatar: '/assets/nhau/patron-1.png' },
+      { user: 'co_bay_mientay', name: 'Cô Bảy Miền Tây', avatar: '/assets/loto/patron-1.png' },
+      { user: 'tuan_ken_99', name: 'Tuấn Ken', avatar: '/assets/nhau/patron-2.png' },
+      { user: 'be_bap_cute', name: 'Bé Bắp', avatar: '/assets/nhau/patron-female-1.png' },
+      { user: 'hung_rau_q4', name: 'Hùng Râu', avatar: '/assets/nhau/patron-uncle-1.png' },
+      { user: 'dieu_nhi_loto', name: 'Diệu Nhi', avatar: '/assets/nhau/patron-female-2.png' },
+      { user: 'minh_tri_vip', name: 'Minh Trí', avatar: '/assets/loto/patron-2.png' },
+      { user: 'linh_dan_idol', name: 'Linh Đan', avatar: '/assets/nhau/patron-chill-1.png' },
+    ];
+    if (this.tickets.size < 10) {
+      botPool.forEach((b) => {
+        if (!this.tickets.has(b.user)) {
+          this.issueTicket(b.user, b.name, b.avatar);
+        }
+      });
+    }
+
+    const ticketsArr = this.getTickets();
+    if (ticketsArr.length === 0) return;
+
+    const picked = customUser
+      ? ticketsArr.find((t) => t.username.toLowerCase() === customUser.toLowerCase()) || ticketsArr[0]
+      : ticketsArr[Math.floor(Math.random() * ticketsArr.length)];
+
+    const sampleChats = [
+      'Gánh hát kêu số mát tay quá ad ơi! 🔥',
+      'Còn thiếu đúng 1 con nữa là nổ Kinh!',
+      'Em chốt số Chẵn (C) lượt này nha!',
+      'Ra số Lẻ (L) đi lồng cầu ơi!',
+      'Xin vía Thẻ cào 50K ván này nha cả nhà 🍀',
+      'Hội chợ đông vui quá, thả tim mạnh lên anh em!',
+      picked.waitingNumbers.length > 0
+        ? `Trời ơi em đang chờ con ${picked.waitingNumbers[0]} hú hồn!`
+        : 'Đợi mãi chưa thấy con hàng chục của em đâu 😂',
+      'Ca sĩ hát ngọt lịm luôn á!',
+    ];
+
+    const text = customComment || sampleChats[Math.floor(Math.random() * sampleChats.length)];
+    if (text.includes('Chẵn')) {
+      this.submitPrediction(picked.username, picked.displayName, 'chan');
+    } else if (text.includes('Lẻ')) {
+      this.submitPrediction(picked.username, picked.displayName, 'le');
+    }
+
+    this.onBotChatCallbacks.forEach((cb) => cb(picked.username, picked.displayName, text, picked.avatarUrl));
+    if (typeof window !== 'undefined') {
+      fetch('/api/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'simulate_chat',
+          username: picked.username,
+          displayName: picked.displayName,
+          text,
+          avatarUrl: picked.avatarUrl,
+        }),
+      }).catch(() => {});
+    }
   }
 
   public setPrize(prize: string) {
@@ -1174,6 +1311,9 @@ class LotoEngineService {
         this.lastWinner = primaryWinner;
         this.historyWinners.unshift(...newWinners);
         this.onWinCallbacks.forEach((cb) => cb(primaryWinner));
+        this.scheduleAutoNextRound(15);
+      } else if (this.calledNumbers.length >= 90) {
+        this.scheduleAutoNextRound(10);
       }
     }, 2000);
 
@@ -1183,6 +1323,11 @@ class LotoEngineService {
   // Clear winner dialog without resetting the current round
   public clearWinner() {
     this.lastWinner = null;
+    if (this.nextRoundInterval) {
+      clearInterval(this.nextRoundInterval);
+      this.nextRoundInterval = null;
+    }
+    this.autoNextRoundCountdown = null;
     this.notify();
   }
 
@@ -1228,11 +1373,17 @@ class LotoEngineService {
     this.historyWinners.unshift(winner);
     this.notify();
     this.onWinCallbacks.forEach((cb) => cb(winner));
+    this.scheduleAutoNextRound(15);
     return winner;
   }
 
   // Reset for a fresh game round
   public resetRound() {
+    if (this.nextRoundInterval) {
+      clearInterval(this.nextRoundInterval);
+      this.nextRoundInterval = null;
+    }
+    this.autoNextRoundCountdown = null;
     this.roundId++;
     this.calledNumbers = [];
     this.currentNumber = null;
@@ -1289,10 +1440,20 @@ class LotoEngineService {
       clearInterval(this.autoTimer);
       this.autoTimer = null;
     }
+    if (!enabled && this.nextRoundInterval) {
+      clearInterval(this.nextRoundInterval);
+      this.nextRoundInterval = null;
+      this.autoNextRoundCountdown = null;
+    }
     if (enabled) {
+      if (this.lastWinner || this.calledNumbers.length >= 90) {
+        this.scheduleAutoNextRound(10);
+      }
       this.autoTimer = setInterval(() => {
         if (!this.isSpinning && this.calledNumbers.length < 90 && !this.lastWinner) {
           this.spinNext();
+        } else if (!this.isSpinning && (this.lastWinner || this.calledNumbers.length >= 90) && this.autoResetOnWin && this.autoNextRoundCountdown === null) {
+          this.scheduleAutoNextRound(12);
         }
       }, this.spinInterval * 1000);
     }

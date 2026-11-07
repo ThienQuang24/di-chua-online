@@ -609,6 +609,7 @@ export const LotoStage: React.FC<LotoStageProps> = ({
         winner={gameState.lastWinner}
         onClose={handleCloseWinner}
         onNewRound={handleNewRound}
+        autoNextRoundCountdown={gameState.autoNextRoundCountdown}
       />
     </div>
   );

@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { lotoEngine, LotoState, LotoTicket, LotoDanceStyle } from '../../services/loto/lotoEngine';
-import { getLotoChant } from '../../services/loto/lotoVerses';
 import { soundEngine } from '../../services/soundEngine';
+import { TikTokLiveStatus } from '../../types/temple';
 
 interface LotoStreamerPanelProps {
   onAddDevotee?: (name: string, avatarUrl: string) => void;
   onTriggerGift?: (username: string, giftName: string, count?: number) => void;
   onResetCrowd?: () => void;
+  tikTokStatus?: TikTokLiveStatus;
+  onConnectTikTok?: (username: string) => void;
+  onDisconnectTikTok?: () => void;
+  onSimulateChat?: (username: string, text: string, avatarUrl?: string) => void;
 }
+
+type LotoPanelTab = 'main' | 'autolive' | 'effects' | 'audio';
 
 const VIETNAMESE_NAMES = [
   'Hương Giang', 'Minh Tuấn', 'Bảo Ngọc', 'Hoàng Nam', 'Linh Đan', 'Thanh Hằng',
@@ -16,7 +22,7 @@ const VIETNAMESE_NAMES = [
   'Văn Hậu', 'Trâm Anh', 'Thúy Kiều', 'Đại Gia Phúc', 'Hải Đăng', 'Thu Trang',
   'Tiến Luật', 'Diệu Nhi', 'Anh Tú', 'Phương Ly', 'Sơn Tùng (Fan)', 'Ngọc Trinh',
   'Bình An', 'Kim Ngân', 'Đức Huy', 'Trọng Hoàng', 'Quang Hải', 'Văn Toàn',
-  'Chị Lan Bến Tre', 'Bác Tám Cà Mau', 'Bé Heo', 'Duy Mạnh', 'Bảo Anh'
+  'Chị Lan Bến Tre', 'Bác Tám Cà Mau', 'Bé Heo', 'Duy Mạnh', 'Bảo Anh',
 ];
 
 const FAIR_AVATARS = [
@@ -32,61 +38,92 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({
   onAddDevotee,
   onTriggerGift,
   onResetCrowd,
+  tikTokStatus,
+  onConnectTikTok,
+  onDisconnectTikTok,
 }) => {
+  const [activeTab, setActiveTab] = useState<LotoPanelTab>('main');
   const [gameState, setGameState] = useState<LotoState>(lotoEngine.getState());
   const [tickets, setTickets] = useState<LotoTicket[]>(lotoEngine.getTickets());
   const [customSpeak, setCustomSpeak] = useState('');
   const [networkInfo, setNetworkInfo] = useState<{ localIp: string; port: number; ticketUrl: string } | null>(null);
   const [showQr, setShowQr] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedObs, setCopiedObs] = useState(false);
   const [lotoVoice, setLotoVoice] = useState<string>(soundEngine.getLotoVoice());
   const [useBeat, setUseBeat] = useState<boolean>(soundEngine.getLotoUseBeat());
   const [availableSongs, setAvailableSongs] = useState<number[]>([]);
-  const [showSunoGuide, setShowSunoGuide] = useState(false);
   const [uploadNum, setUploadNum] = useState<number>(12);
   const [uploadMsg, setUploadMsg] = useState<string>('');
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [newPlayerName, setNewPlayerName] = useState<string>('');
 
-  // AI Voice Cloning State
-  const [showCloneStudio, setShowCloneStudio] = useState(false);
-  const [cloneStatus, setCloneStatus] = useState<{
-    hasApiKey: boolean;
-    apiKeyMasked: string;
-    voiceId: string;
-    voiceName: string;
-    clonedCount: number;
-    clonedNumbers: number[];
-  }>({
-    hasApiKey: false,
-    apiKeyMasked: '',
-    voiceId: '',
-    voiceName: 'Ngọc Nữ Hằng Ny (Cloned)',
-    clonedCount: 0,
-    clonedNumbers: [],
-  });
-  const [cloneApiKeyInput, setCloneApiKeyInput] = useState('');
-  const [cloneVoiceIdInput, setCloneVoiceIdInput] = useState('');
-  const [cloneNumInput, setCloneNumInput] = useState<number>(1);
-  const [cloneLoading, setCloneLoading] = useState(false);
-  const [cloneMsg, setCloneMsg] = useState('');
+  // Chat bubble test state
+  const [chatSenderName, setChatSenderName] = useState<string>('');
+  const [chatMessageInput, setChatMessageInput] = useState<string>('');
 
-  // Video Dancer & AI Motion State
+  // Video Dancer State
   const [danceVideoUrl, setDanceVideoUrl] = useState<string>('/assets/loto/dancers/dance-anime.webm');
   const [danceIsGreenScreen, setDanceIsGreenScreen] = useState<boolean>(false);
   const [danceUploadMsg, setDanceUploadMsg] = useState<string>('');
   const [isUploadingDance, setIsUploadingDance] = useState<boolean>(false);
-  const [showAiGuide, setShowAiGuide] = useState<boolean>(false);
 
-  const refreshCloneStatus = () => {
-    fetch('/api/loto/clone/status')
+  // Auto-Live & OBS Automation State
+  const [tiktokInput, setTiktokInput] = useState<string>(tikTokStatus?.username || '');
+  const [autoWatchTikTok, setAutoWatchTikTok] = useState<boolean>(true);
+  const [obsWebSocketUrl, setObsWebSocketUrl] = useState<string>('ws://127.0.0.1:4455');
+  const [obsPassword, setObsPassword] = useState<string>('');
+  const [rtmpServer, setRtmpServer] = useState<string>('');
+  const [rtmpStreamKey, setRtmpStreamKey] = useState<string>('');
+  const [showObsAdvanced, setShowObsAdvanced] = useState<boolean>(false);
+  const [autoLiveStatusMsg, setAutoLiveStatusMsg] = useState<string>('');
+  const [autoLiveLoading, setAutoLiveLoading] = useState<boolean>(false);
+
+  const [simulatedGifterName, setSimulatedGifterName] = useState<string>('');
+  const [prizeInput, setPrizeInput] = useState<string>(gameState.currentPrize || 'Thẻ cào điện thoại 50.000đ');
+
+  useEffect(() => {
+    fetch('/api/network-info')
       .then((r) => r.json())
-      .then((d) => {
-        setCloneStatus(d);
-        if (d.voiceId) setCloneVoiceIdInput(d.voiceId);
+      .then((data) => setNetworkInfo(data))
+      .catch(() => {});
+
+    fetch('/api/loto/songs')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.songs) setAvailableSongs(data.songs);
       })
       .catch(() => {});
-  };
+
+    fetch('/api/live/auto-config')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.config) {
+          if (data.config.tiktokUsername) setTiktokInput(data.config.tiktokUsername);
+          if (typeof data.config.autoWatchTikTok === 'boolean') setAutoWatchTikTok(data.config.autoWatchTikTok);
+          if (data.config.obsWebSocketUrl) setObsWebSocketUrl(data.config.obsWebSocketUrl);
+          if (data.config.rtmpServer) setRtmpServer(data.config.rtmpServer);
+          if (data.config.rtmpStreamKeyMasked) setRtmpStreamKey(data.config.rtmpStreamKeyMasked);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (tikTokStatus?.username && !tiktokInput) {
+      setTiktokInput(tikTokStatus.username);
+    }
+  }, [tikTokStatus?.username]);
+
+  useEffect(() => {
+    const unsub = lotoEngine.subscribe((st) => {
+      setGameState(st);
+      setTickets(lotoEngine.getTickets());
+    });
+    return () => {
+      unsub();
+    };
+  }, []);
 
   const handleUploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -121,124 +158,20 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({
     }
   };
 
-  useEffect(() => {
-    fetch('/api/network-info')
-      .then((r) => r.json())
-      .then((data) => setNetworkInfo(data))
-      .catch(() => {});
-
-    fetch('/api/loto/songs')
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.songs) setAvailableSongs(data.songs);
-      })
-      .catch(() => {});
-
-    refreshCloneStatus();
-  }, []);
-
-  const handleSaveCloneConfig = async () => {
-    setCloneLoading(true);
-    setCloneMsg('Đang lưu cấu hình...');
-    try {
-      const res = await fetch('/api/loto/clone/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          apiKey: cloneApiKeyInput || undefined,
-          voiceId: cloneVoiceIdInput || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setCloneMsg('Đã lưu cấu hình Voice Clone thành công!');
-        refreshCloneStatus();
-      } else {
-        setCloneMsg(`Lỗi: ${data.error}`);
-      }
-    } catch (err) {
-      setCloneMsg(`Lỗi kết nối: ${String(err)}`);
-    } finally {
-      setCloneLoading(false);
-      setTimeout(() => setCloneMsg(''), 4000);
-    }
-  };
-
-  const handleGenerateCloneNumber = async () => {
-    setCloneLoading(true);
-    setCloneMsg(`Đang gọi AI ElevenLabs clone giọng cho số ${cloneNumInput}...`);
-    try {
-      const res = await fetch('/api/loto/clone/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ num: cloneNumInput }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setCloneMsg(`Tạo thành công giọng Hằng Ny cho số ${cloneNumInput}!`);
-        refreshCloneStatus();
-        soundEngine.playLotoCall(cloneNumInput);
-      } else {
-        setCloneMsg(`Lỗi: ${data.error}`);
-      }
-    } catch (err) {
-      setCloneMsg(`Lỗi: ${String(err)}`);
-    } finally {
-      setCloneLoading(false);
-      setTimeout(() => setCloneMsg(''), 4000);
-    }
-  };
-
-  const handleUploadClonedFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setCloneLoading(true);
-    setCloneMsg(`Đang nạp file giọng clone cho số ${cloneNumInput}...`);
-    try {
-      const buffer = await file.arrayBuffer();
-      const res = await fetch(`/api/loto/clone/upload-number?num=${cloneNumInput}`, {
-        method: 'POST',
-        headers: { 'Content-Type': file.type || 'audio/mpeg' },
-        body: buffer,
-      });
-      const data = await res.json();
-      if (data.success) {
-        setCloneMsg(`Đã nạp file giọng Hằng Ny cho số ${cloneNumInput}!`);
-        refreshCloneStatus();
-      } else {
-        setCloneMsg(`Lỗi: ${data.error}`);
-      }
-    } catch (err) {
-      setCloneMsg(`Lỗi nạp file: ${String(err)}`);
-    } finally {
-      setCloneLoading(false);
-      setTimeout(() => setCloneMsg(''), 4000);
-      e.target.value = '';
-    }
-  };
-
-  useEffect(() => {
-    const unsub = lotoEngine.subscribe((st) => {
-      setGameState(st);
-      setTickets(lotoEngine.getTickets());
-    });
-    return () => {
-      unsub();
-    };
-  }, []);
-
   const handleSpinNext = () => {
     lotoEngine.spinNext();
   };
 
-  const handleToggleAuto = () => {
-    lotoEngine.setAutoSpin(!gameState.isAutoSpin);
+  // Bật / tắt chế độ Treo Máy Tự Động 24/7 (tự quay số + tự qua ván mới + bot giữ nhiệt)
+  const handleToggleAutoPilot = () => {
+    const next = !gameState.isAutoSpin;
+    lotoEngine.setAutoSpin(next);
+    lotoEngine.setAutoResetOnWin(true);
+    lotoEngine.setAutoBotCrowd(next);
   };
 
   const handleResetRound = () => {
-    if (confirm('Bạn có chắc chắn muốn bắt đầu ván mới không? (Bảng số sẽ được xóa về 0)')) {
-      lotoEngine.resetRound();
-    }
+    lotoEngine.resetRound();
   };
 
   const handleAddNewPlayer = () => {
@@ -249,10 +182,6 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({
     lotoEngine.issueTicket(cleanUser, raw, avatar);
     onAddDevotee?.(cleanUser, avatar);
     setNewPlayerName('');
-  };
-
-  const handleSimulatePlayer = () => {
-    handleAddBatchPlayers(1);
   };
 
   const handleAddBatchPlayers = (count: number) => {
@@ -302,13 +231,18 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({
     onAddDevotee?.(winner.username, winner.avatarUrl);
   };
 
-  const [simulatedGifterName, setSimulatedGifterName] = useState<string>('');
-  const [prizeInput, setPrizeInput] = useState<string>(gameState.currentPrize || 'Thẻ cào điện thoại 50.000đ');
-
   const handleSavePrize = (prize: string) => {
     const val = prize.trim() || 'Thẻ cào điện thoại 50.000đ';
     lotoEngine.setPrize(val);
     setPrizeInput(val);
+  };
+
+  const handleSendTestChat = (overrideText?: string) => {
+    const text = (overrideText ?? chatMessageInput).trim();
+    if (!text) return;
+    const targetUser = chatSenderName.trim() || (tickets[0] ? tickets[0].username : 'Anh Ba Sài Gòn');
+    lotoEngine.triggerRandomBotChat(targetUser, text);
+    if (!overrideText) setChatMessageInput('');
   };
 
   const handleSimulateGift = (giftName: string, coins: number) => {
@@ -346,7 +280,6 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({
         if (data.success && data.url) {
           setDanceVideoUrl(data.url);
           setDanceUploadMsg(`✓ Đã nạp & đang chiếu: ${file.name}`);
-          // Tự động kích hoạt nhảy ngay lập tức trên sân khấu!
           handleTriggerDance('fan', data.url, danceIsGreenScreen);
         } else {
           setDanceUploadMsg(`Lỗi tải video: ${data.error || 'Thất bại'}`);
@@ -413,18 +346,75 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({
     }).catch(() => {});
   };
 
+  // Kích hoạt Tự Động Live Toàn Diện (1-Click Auto-Live)
+  const handleOneClickAutoLive = async (withObsWebSocket: boolean = false) => {
+    setAutoLiveLoading(true);
+    setAutoLiveStatusMsg('🚀 Đang thiết lập Tự Động Live & Treo Máy 24/7...');
+    try {
+      const cleanUser = tiktokInput.trim().replace(/^@/, '');
+      if (cleanUser && onConnectTikTok) {
+        onConnectTikTok(cleanUser);
+      }
+      // Bật Auto-Pilot (Quay tự động + Tự qua ván mới + Bot giữ nhiệt)
+      lotoEngine.setAutoSpin(true);
+      lotoEngine.setAutoResetOnWin(true);
+      lotoEngine.setAutoBotCrowd(true);
+      if (tickets.length < 15) {
+        handleFillAudience(20);
+      }
+
+      const res = await fetch('/api/live/auto-start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tiktokUsername: cleanUser,
+          autoWatchTikTok,
+          launchStage: true,
+          connectObs: withObsWebSocket,
+          obsWebSocketUrl,
+          obsPassword,
+          rtmpServer,
+          rtmpStreamKey,
+          enableAutoPilot: true,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.steps)) {
+        setAutoLiveStatusMsg('✓ ' + data.steps.join(' • '));
+      } else {
+        setAutoLiveStatusMsg('✓ Đã kích hoạt chế độ Tự Động Live & Treo 24/7!');
+      }
+    } catch (err: any) {
+      setAutoLiveStatusMsg('Lỗi: ' + (err.message || 'Không thể kết nối'));
+    } finally {
+      setAutoLiveLoading(false);
+    }
+  };
+
+  const handleLaunchStageWindow = async (openObs: boolean = false) => {
+    try {
+      const res = await fetch('/api/live/launch-stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ openObs }),
+      });
+      const data = await res.json();
+      if (data.message) setAutoLiveStatusMsg('✓ ' + data.message);
+    } catch {}
+  };
+
   const MC_PROMPTS = [
     {
-      label: '🌹 Kêu gọi tặng hoa nhận vé',
-      text: 'Gia đình mình ơi, ai chưa có vé thì bấm gửi 1 bông hoa hồng, gánh hát cấp vé may mắn liền tay để dò trúng quà to nha!',
+      label: '🌹 Kêu gọi tặng hoa nhận vé VIP',
+      text: 'Gia đình mình ơi, ai chưa có vé thì gõ layve hoặc tặng 1 bông hoa hồng để gánh hát cấp vé Vàng VIP ngồi hàng đầu dò trúng quà to nha!',
     },
     {
-      label: '🍦 Nâng cấp vé VIP Vàng',
-      text: 'Đại gia nào tặng cây kem hoặc vương miện em cho ngồi hàng ghế đầu VIP máy lạnh, nâng cấp vé Vàng may mắn dễ nổ Kinh nha cả nhà!',
+      label: '🎲 Kêu gọi đoán Chẵn / Lẻ',
+      text: 'Bà con ơi bình luận ngay chữ C nếu đoán số tiếp theo là Chẵn, hoặc chữ L nếu đoán số Lẻ để đua top thần dự đoán nha!',
     },
     {
-      label: '🚀 Quyền chỉ định số tiếp theo',
-      text: 'Tên lửa xuất hiện là gánh hát cho đại gia chỉ định luôn con số tiếp theo quay trong lồng cầu nha quý vị!',
+      label: '🚀 Kêu gọi thả tim & chia sẻ',
+      text: 'Cả nhà mình cùng bấm thả tim màn hình đủ 666 tim để gánh hát bắn pháo hoa rực rỡ cả hội trường nha quý vị!',
     },
   ];
 
@@ -435,519 +425,1091 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({
     }
   };
 
+  const obsStageUrl = `http://lvh.me:${networkInfo?.port || 3000}/?view=stage&theme=loto`;
+
   return (
-    <div className="flex flex-col gap-4 p-4 bg-slate-900 border border-slate-800 rounded-2xl text-slate-100">
-      {/* 1. THANH TRẠNG THÁI VÀ NÚT ĐIỀU KHIỂN CHÍNH */}
+    <div className="flex flex-col gap-3.5 p-4 bg-slate-900 border border-slate-800 rounded-2xl text-slate-100 shadow-2xl">
+      {/* 1. HEADER CHÍNH: TRẠNG THÁI VÁN + NÚT QUAY / TREO TỰ ĐỘNG 24/7 */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-base font-bold text-amber-400 flex items-center gap-2">
-              <span>🎪</span> ĐIỀU KHIỂN LÔ TÔ ONLINE (VÁN #{gameState.roundId})
+            <h2 className="text-base font-black text-amber-400 flex items-center gap-1.5">
+              <span>🎪</span>
+              <span>BẢNG ĐIỀU KHIỂN LÔ TÔ (VÁN #{gameState.roundId})</span>
             </h2>
             <span
               className="px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/50 text-[10px] font-bold text-emerald-300 flex items-center gap-1"
-              title="Trạng thái ván chơi và danh sách vé được tự động lưu liên tục vào Server & Trình duyệt (chống mất khi F5)"
+              title="Tự động lưu trạng thái ván chơi & vé liên tục"
             >
               <span>💾</span>
-              <span>Auto-Save: Đã lưu ({tickets.length} vé)</span>
+              <span>Auto-Save ({tickets.length} vé)</span>
             </span>
+            {tikTokStatus?.isConnected ? (
+              <span className="px-2 py-0.5 rounded-full bg-red-600/20 border border-red-500 text-[10px] font-bold text-red-300 flex items-center gap-1 animate-pulse">
+                <span>🔴</span>
+                <span>Live: @{tikTokStatus.username} ({tikTokStatus.viewerCount || 0} xem)</span>
+              </span>
+            ) : (
+              <button
+                onClick={() => setActiveTab('autolive')}
+                className="px-2 py-0.5 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-600 text-[10px] font-semibold text-amber-300 flex items-center gap-1"
+              >
+                <span>📡</span>
+                <span>Kết nối TikTok / OBS</span>
+              </button>
+            )}
           </div>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-400 mt-0.5">
             Đã gọi: <strong className="text-amber-300">{gameState.calledNumbers.length}/90 số</strong> •{' '}
-            {gameState.activeTicketCount} vé đang dò
+            <strong className="text-white">{tickets.length}</strong> khán giả đang dò vé
+            {gameState.autoNextRoundCountdown !== null && (
+              <span className="ml-2 text-yellow-300 font-bold animate-pulse">
+                • ⏳ Tự qua ván mới sau {gameState.autoNextRoundCountdown}s...
+              </span>
+            )}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Nút quay số thủ công */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Nút Quay Số Tiếp */}
           <button
             onClick={handleSpinNext}
             disabled={gameState.isSpinning}
-            className={`
-              px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md transition-all
-              ${
-                gameState.isSpinning
-                  ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 hover:brightness-110 active:scale-95'
-              }
-            `}
+            className={`px-4 py-2 rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md transition-all ${
+              gameState.isSpinning
+                ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                : 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 hover:brightness-110 active:scale-95'
+            }`}
           >
             <span>🎲</span>
             <span>{gameState.isSpinning ? 'Đang quay...' : 'Quay Số Tiếp'}</span>
           </button>
 
-          {/* Bật / Tắt quay tự động */}
+          {/* Nút Treo Tự Động 24/7 (Auto-Pilot) */}
           <button
-            onClick={handleToggleAuto}
-            className={`
-              px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all
-              ${
-                gameState.isAutoSpin
-                  ? 'bg-emerald-600/30 border border-emerald-500 text-emerald-300'
-                  : 'bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200'
-              }
-            `}
+            onClick={handleToggleAutoPilot}
+            className={`px-3.5 py-2 rounded-xl font-black text-xs flex items-center gap-1.5 transition-all shadow ${
+              gameState.isAutoSpin
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white border border-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.5)]'
+                : 'bg-slate-800 border border-slate-700 text-slate-300 hover:text-white'
+            }`}
+            title="Bật chế độ tự động quay số, tự động qua ván mới khi có người Kinh, và tự động cho Bot khán giả chat giữ nhiệt"
           >
-            <span>{gameState.isAutoSpin ? '🟢 Tự động: BẬT' : '⚪ Tự động: TẮT'}</span>
+            <span>🤖</span>
+            <span>{gameState.isAutoSpin ? 'Treo Tự Động 24/7: BẬT' : 'Treo Tự Động 24/7: TẮT'}</span>
           </button>
 
-          {/* Bắt đầu ván mới */}
+          {/* Ván mới */}
           <button
             onClick={handleResetRound}
-            className="px-3 py-2 rounded-xl bg-red-950/40 border border-red-500/40 text-red-400 hover:bg-red-900/60 font-semibold text-xs transition-all"
+            className="px-3 py-2 rounded-xl bg-red-950/50 border border-red-500/40 text-red-300 hover:bg-red-900/60 font-bold text-xs transition-all active:scale-95"
           >
             🔄 Ván mới
           </button>
         </div>
       </div>
 
-      {/* 1.5. CÀI ĐẶT PHẦN THƯỞNG VÁN NÀY (CHO NGƯỜI TRÚNG KINH NHẬN QUÀ) */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 p-3 rounded-xl bg-gradient-to-r from-yellow-950/40 via-amber-950/30 to-slate-950/60 border border-yellow-500/40">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🎁</span>
-          <div>
-            <div className="text-xs font-bold text-yellow-300 uppercase tracking-wide flex items-center gap-1.5">
-              <span>Phần Thưởng Ván Này (Người KINH Nhận Quà)</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-red-600 text-white text-[8px] font-black uppercase">
-                Hiện Trên Live
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-400">
-              Người chơi nổ Kinh sẽ thấy phần quà này kèm hướng dẫn chụp màn hình inbox nhận thưởng.
-            </p>
-          </div>
-        </div>
+      {/* 2. THANH CHUYỂN TAB GỌN GÀNG (4 MỤC RÕ RÀNG, KHÔNG RỐI MẮT) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 rounded-xl bg-slate-950 border border-slate-800">
+        <button
+          onClick={() => setActiveTab('main')}
+          className={`py-2 px-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+            activeTab === 'main'
+              ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 shadow font-black'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <span>🎮</span>
+          <span>1. Khán Phòng & Chat</span>
+        </button>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="text"
-            value={prizeInput}
-            onChange={(e) => setPrizeInput(e.target.value)}
-            onBlur={() => handleSavePrize(prizeInput)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSavePrize(prizeInput)}
-            placeholder="Nhập tên phần quà (VD: Thẻ cào 50K)..."
-            className="px-3 py-1.5 rounded-lg bg-slate-950 border border-yellow-400/50 text-xs text-yellow-200 placeholder:text-slate-500 w-52 focus:outline-none focus:border-yellow-300"
-          />
+        <button
+          onClick={() => setActiveTab('autolive')}
+          className={`py-2 px-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+            activeTab === 'autolive'
+              ? 'bg-gradient-to-r from-red-600 to-amber-500 text-white shadow font-black'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <span>🚀</span>
+          <span>2. Tự Động Live & OBS</span>
+        </button>
 
-          <div className="flex items-center gap-1">
-            {['Thẻ cào 20K', 'Thẻ cào 50K', 'Thẻ cào 100K', 'Gấu bông', 'Hộp quà bí mật'].map((p) => (
-              <button
-                key={p}
-                onClick={() => handleSavePrize(p)}
-                className={`px-2 py-1 rounded-md text-[9.5px] font-bold border transition-all active:scale-95 ${
-                  prizeInput === p
-                    ? 'bg-yellow-500 text-slate-950 border-yellow-300 shadow'
-                    : 'bg-slate-800/80 text-amber-200/80 border-slate-700 hover:border-yellow-500/60'
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-        </div>
+        <button
+          onClick={() => setActiveTab('effects')}
+          className={`py-2 px-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+            activeTab === 'effects'
+              ? 'bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow font-black'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <span>💃</span>
+          <span>3. Vũ Công & Cao Trào</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('audio')}
+          className={`py-2 px-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+            activeTab === 'audio'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow font-black'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <span>🎵</span>
+          <span>4. Âm Thanh (90 Số)</span>
+        </button>
       </div>
 
-      {/* 1.8. BỘ CÔNG CỤ KÍCH HOẠT CAO TRÀO & TƯƠNG TÁC MỚI (BẮT KINH GIẢ • CAO TRÀO • VÉ VIP • ĐOÁN CHẴN/LẺ) */}
-      <div className="p-3 rounded-xl bg-gradient-to-r from-rose-950/40 via-slate-900 to-sky-950/40 border border-amber-500/40 flex flex-col gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="text-base">⚡</span>
-            <div>
-              <h3 className="text-xs font-black text-amber-300 uppercase tracking-wide">
-                Hiệu Ứng Giữ Chân & Đẩy Tương Tác Phòng Live
-              </h3>
-              <p className="text-[10px] text-slate-400">
-                Tự động bắt Kinh giả khi khách chat <code className="text-yellow-300">kinh</code>, bật đèn cao trào khi có người 4/5 số, cấp Vé Vàng VIP khi tặng quà & đoán Chẵn/Lẻ (<code className="text-sky-300">C</code>/<code className="text-rose-300">L</code>).
-              </p>
-            </div>
-          </div>
-
-          <label className="flex items-center gap-1.5 cursor-pointer select-none text-[11px] text-sky-300 font-semibold">
-            <input
-              type="checkbox"
-              checked={gameState.showPredictionWidget}
-              onChange={(e) => lotoEngine.setShowPredictionWidget(e.target.checked)}
-              className="w-3.5 h-3.5 accent-sky-500 rounded"
-            />
-            <span>Hiện thanh Mini-game Đoán Chẵn/Lẻ</span>
-          </label>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <button
-            onClick={() => lotoEngine.simulateFakeKinh()}
-            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-rose-600 to-orange-600 hover:brightness-110 text-white text-[11px] font-black border border-yellow-300/70 shadow active:scale-95 transition-all flex items-center gap-1.5"
-            title="Giả lập 1 khán giả hô Kinh giả để bật còi báo động & phạt múa quạt trên sân khấu"
-          >
-            <span>🚨</span>
-            <span>Test Bắt Kinh Giả (Phạt Hài Hước)</span>
-          </button>
-
-          <button
-            onClick={() => lotoEngine.simulateTensionWaiting(3)}
-            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-red-700 to-amber-600 hover:brightness-110 text-yellow-100 text-[11px] font-black border border-yellow-300/70 shadow active:scale-95 transition-all flex items-center gap-1.5"
-            title="Cho 3 khán giả đạt trạng thái Chờ Kinh (4/5 số) để bật hiệu ứng Cao Trào Sắp Nổ Hũ"
-          >
-            <span>🔥</span>
-            <span>Test Cao Trào Chờ Kinh (3 Người 4/5)</span>
-          </button>
-
-          <button
-            onClick={() => {
-              const first = tickets[0];
-              const uname = first ? first.username : 'dai_gia_vip';
-              const dname = first ? first.displayName : 'Đại Gia VIP';
-              const avt = first ? first.avatarUrl : '/assets/loto/patron-1.png';
-              lotoEngine.upgradeToVip(uname, dname, avt, 'Hoa Hồng Vàng', 99);
-              lotoEngine.setSpotlightTicket(uname);
-            }}
-            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-500 hover:brightness-110 text-slate-950 text-[11px] font-black border border-yellow-200 shadow active:scale-95 transition-all flex items-center gap-1.5"
-            title="Nâng cấp Vé Vàng VIP & cho đại gia Xin Vía Lồng Cầu"
-          >
-            <span>👑</span>
-            <span>Test Đại Gia Vé VIP & Xin Vía Lồng Cầu</span>
-          </button>
-
-          <button
-            onClick={() => lotoEngine.simulatePredictions(10)}
-            className="px-3 py-1.5 rounded-lg bg-sky-950/80 hover:bg-sky-900 text-sky-200 text-[11px] font-bold border border-sky-500/50 shadow active:scale-95 transition-all flex items-center gap-1.5"
-            title="Giả lập 10 khán giả bình luận đoán Chẵn / Lẻ cho lượt quay kế tiếp"
-          >
-            <span>🎲</span>
-            <span>Test 10 Khách Đoán Chẵn/Lẻ</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 2. BẢNG VÉ & CHIẾU VÉ KHÁN GIẢ TRỰC TIẾP TRÊN LIVE */}
-      <div className="bg-gradient-to-r from-amber-950/80 via-slate-900 to-amber-950/80 p-4 rounded-2xl border-2 border-amber-500/60 shadow-xl flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-amber-500/30">
-          <div className="flex items-center gap-2.5">
-            <span className="text-2xl">🎟️</span>
-            <div>
-              <h3 className="text-sm font-black text-amber-300 flex items-center gap-2">
-                <span>VÉ KHÁN GIẢ TRỰC TIẾP (BẤM VÀO NGƯỜI ĐỂ HIỆN VÉ)</span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black uppercase tracking-wider">
-                  Khán phòng thoáng đãng
+      {/* =====================================================================
+          TAB 1: KHÁN PHÒNG, TREO TỰ ĐỘNG, BONG BÓNG CHAT & DANH SÁCH VÉ
+         ===================================================================== */}
+      {activeTab === 'main' && (
+        <div className="flex flex-col gap-3">
+          {/* A. CÀI ĐẶT TREO MÁY TỰ ĐỘNG 24/7 & PHẦN THƯỞNG VÁN */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Cột trái: Cấu hình Treo Tự Động */}
+            <div className="p-3 rounded-xl bg-slate-950/80 border border-emerald-500/30 flex flex-col justify-between gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-emerald-300 uppercase flex items-center gap-1.5">
+                  <span>🤖</span>
+                  <span>Chế Độ Treo Máy Tự Động 24/7</span>
                 </span>
-              </h3>
-              <p className="text-[11px] text-slate-300">
-                Toàn cảnh khán giả ngồi dò vé 100% rõ nét. Chỉ khi bấm vào người ngồi (hoặc chọn bên dưới), vé của họ mới phóng to lên màn hình!
-              </p>
-            </div>
-          </div>
-
-          {/* Trạng thái chiếu vé hiện tại */}
-          <div className="flex items-center gap-2">
-            {gameState.showSpotlightTicket ? (
-              <button
-                onClick={() => lotoEngine.closeSpotlightTicket()}
-                className="px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.6)] active:scale-95"
-              >
-                <span>✕</span>
-                <span>Đóng vé đang chiếu</span>
-              </button>
-            ) : (
-              <span className="text-[11px] text-slate-400 font-semibold px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800">
-                👁️ Đang xem toàn cảnh
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Thông báo trạng thái chiếu vé & tùy chọn tự động */}
-        <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-xs">
-          <div className="flex items-center gap-2 text-slate-300">
-            {gameState.showSpotlightTicket && gameState.spotlightTicketUser ? (
-              <span className="text-amber-300 font-bold flex items-center gap-1.5 animate-pulse">
-                <span>📺</span>
-                <span>
-                  Đang chiếu vé của: <strong className="text-white underline">{gameState.spotlightTicketUser}</strong> trên màn hình Live!
+                <span className="text-[10px] font-mono text-slate-400">
+                  {gameState.spinInterval}s / số
                 </span>
-              </span>
-            ) : (
-              <span className="text-slate-400 flex items-center gap-1.5">
-                <span>💡</span>
-                <span>Bấm vào bất kỳ nhân vật nào đang ngồi trên ghế (hoặc nút [Chiếu vé] bên dưới) để mở vé của họ lên Live.</span>
-              </span>
-            )}
-          </div>
+              </div>
 
-          <label className="flex items-center gap-1.5 cursor-pointer select-none text-[11px] text-amber-200">
-            <input
-              type="checkbox"
-              checked={gameState.autoShowOnWaitingKin}
-              onChange={(e) => lotoEngine.setAutoShowOnWaitingKin(e.target.checked)}
-              className="w-3.5 h-3.5 accent-amber-500 rounded"
-            />
-            <span>Tự động chiếu vé khi có người Sắp KINH (4/5 số)</span>
-          </label>
-        </div>
+              <div className="flex flex-col gap-1.5 text-[11px] text-slate-300">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={gameState.autoResetOnWin}
+                    onChange={(e) => lotoEngine.setAutoResetOnWin(e.target.checked)}
+                    className="w-3.5 h-3.5 accent-emerald-500 rounded"
+                  />
+                  <span>Tự động qua Ván mới sau 15s khi có người trúng Kinh</span>
+                </label>
 
-        {/* Quản lý sức chứa khán phòng & thêm khách hàng loạt */}
-        <div className="flex flex-col gap-2 pt-2 border-t border-slate-800/80">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-sm">👥</span>
-              <div>
-                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
-                  <span>Khán Phòng Hội Trường:</span>
-                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-yellow-300 border border-amber-500/40 text-[10.5px]">
-                    {tickets.length} khán giả ({Math.min(tickets.length, 47)}/47 vị trí trực tiếp)
-                  </span>
-                  {tickets.length > 47 && (
-                    <span className="px-2 py-0.5 rounded-full bg-red-950/80 text-red-300 border border-red-500/50 text-[10px] animate-pulse">
-                      +{tickets.length - 47} đang chờ xoay vòng ghế 🎪
-                    </span>
-                  )}
-                </div>
-                <p className="text-[10px] text-slate-400">
-                  Hội trường gồm 31 ghế chính + 16 ghế mở rộng phía sau (tổng 47 người hiện tên trên đầu). Hệ thống tự động ưu tiên Đại Gia VIP, Chờ Kinh & Dính Số ngồi hàng đầu.
-                </p>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={gameState.autoBotCrowd}
+                    onChange={(e) => lotoEngine.setAutoBotCrowd(e.target.checked)}
+                    className="w-3.5 h-3.5 accent-emerald-500 rounded"
+                  />
+                  <span>Bot khán giả tự động lấp ghế & hiện Bong Bóng Chat giữ nhiệt</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={gameState.showPredictionWidget}
+                    onChange={(e) => lotoEngine.setShowPredictionWidget(e.target.checked)}
+                    className="w-3.5 h-3.5 accent-sky-500 rounded"
+                  />
+                  <span>Hiện thanh Mini-game Đoán số Chẵn (C) / Lẻ (L)</span>
+                </label>
               </div>
             </div>
 
-            {/* Dãy nút thêm nhanh hàng loạt */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <button
-                onClick={() => handleAddBatchPlayers(1)}
-                className="px-2.5 py-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 text-[11px] font-bold border border-emerald-500/50 shadow active:scale-95 transition-all flex items-center gap-1"
-                title="Thêm 1 khán giả ngẫu nhiên"
-              >
-                <span>+1</span>
-                <span>Khách</span>
-              </button>
-              <button
-                onClick={() => handleAddBatchPlayers(5)}
-                className="px-2.5 py-1.5 rounded-lg bg-teal-950/60 hover:bg-teal-900/80 text-teal-300 text-[11px] font-bold border border-teal-500/50 shadow active:scale-95 transition-all flex items-center gap-1"
-                title="Thêm 5 khán giả ngẫu nhiên"
-              >
-                <span>+5</span>
-                <span>Khách</span>
-              </button>
-              <button
-                onClick={() => handleAddBatchPlayers(10)}
-                className="px-2.5 py-1.5 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 text-[11px] font-bold border border-indigo-500/50 shadow active:scale-95 transition-all flex items-center gap-1"
-                title="Thêm 10 khán giả đoàn du khách"
-              >
-                <span>+10</span>
-                <span>Đoàn khách</span>
-              </button>
-              <button
-                onClick={() => handleFillAudience(31)}
-                className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-600 hover:brightness-110 text-slate-950 font-black text-[11px] border border-yellow-300 shadow-[0_0_12px_rgba(245,158,11,0.5)] active:scale-95 transition-all flex items-center gap-1"
-                title="Tự động lấp đầy toàn bộ 31 ghế ngồi trên sân khấu"
-              >
-                <span>🔥</span>
-                <span>Đầy Hội Trường (31 Ghế)</span>
-              </button>
-              <button
-                onClick={handleClearAudience}
-                className="px-2.5 py-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 text-[11px] font-semibold border border-rose-800/50 shadow active:scale-95 transition-all flex items-center gap-1"
-                title="Xóa hết khán giả và vé ván này"
-              >
-                <span>🧹</span>
-                <span>Xóa hết khách</span>
-              </button>
-            </div>
-          </div>
+            {/* Cột phải: Phần thưởng ván này */}
+            <div className="p-3 rounded-xl bg-slate-950/80 border border-yellow-500/30 flex flex-col justify-between gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-yellow-300 uppercase flex items-center gap-1.5">
+                  <span>🎁</span>
+                  <span>Phần Thưởng Ván Này</span>
+                </span>
+                <span className="px-1.5 py-0.2 rounded bg-red-600 text-white text-[8px] font-black uppercase">
+                  Hiện Trên Live
+                </span>
+              </div>
 
-          {/* Form cấp vé cho người xem tùy ý theo tên */}
-          <div className="flex items-center gap-2 pt-1">
-            <input
-              type="text"
-              value={newPlayerName}
-              onChange={(e) => setNewPlayerName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddNewPlayer()}
-              placeholder="Nhập tên người xem TikTok (VD: @linh_dan, Anh Ba, Bé Bắp)..."
-              className="flex-1 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
-            />
-            <button
-              onClick={handleAddNewPlayer}
-              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:brightness-110 text-white font-bold text-xs shadow active:scale-95 transition-all whitespace-nowrap flex items-center gap-1"
-            >
-              <span>+</span>
-              <span>Cấp vé cho khán giả này</span>
-            </button>
-          </div>
-        </div>
+              <input
+                type="text"
+                value={prizeInput}
+                onChange={(e) => setPrizeInput(e.target.value)}
+                onBlur={() => handleSavePrize(prizeInput)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSavePrize(prizeInput)}
+                placeholder="Nhập phần quà (VD: Thẻ cào 50K)..."
+                className="w-full px-2.5 py-1 rounded-lg bg-slate-900 border border-yellow-400/50 text-xs text-yellow-200 focus:outline-none focus:border-yellow-300"
+              />
 
-        {/* Danh sách các vé người chơi hiện tại */}
-        {tickets.length > 0 && (
-          <div className="flex flex-col gap-1.5 mt-1">
-            <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
-              <span>Danh sách vé người chơi đang ngồi trong khán phòng ({tickets.length} vé):</span>
-              <span className="text-[10px] text-amber-400 italic">Bấm 👁️ để chiếu vé của họ lên màn hình Live</span>
-            </div>
-
-            <div className="max-h-48 overflow-y-auto flex flex-col gap-1 pr-1">
-              {tickets.map((t, idx) => {
-                const isSpotlight =
-                  gameState.showSpotlightTicket &&
-                  gameState.spotlightTicketUser?.toLowerCase() === t.username.toLowerCase();
-                const isWaiting = t.waitingNumbers.length > 0 && !t.hasWon;
-
-                return (
-                  <div
-                    key={t.id}
-                    className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs transition-all ${
-                      isSpotlight
-                        ? 'bg-amber-500/20 border-yellow-400 shadow-md ring-1 ring-yellow-400'
-                        : t.hasWon
-                        ? 'bg-yellow-950/60 border-yellow-500 text-yellow-200'
-                        : isWaiting
-                        ? 'bg-red-950/50 border-red-500/70 text-red-200'
-                        : 'bg-slate-950/60 border-slate-800 text-slate-300'
+              <div className="flex flex-wrap items-center gap-1">
+                {['Thẻ cào 20K', 'Thẻ cào 50K', 'Thẻ cào 100K', 'Gấu bông', 'Hộp quà bí mật'].map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => handleSavePrize(p)}
+                    className={`px-2 py-0.5 rounded text-[9.5px] font-bold border transition-all ${
+                      prizeInput === p
+                        ? 'bg-yellow-500 text-slate-950 border-yellow-300'
+                        : 'bg-slate-900 text-amber-200/80 border-slate-700 hover:border-yellow-500/60'
                     }`}
                   >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-mono text-[10px] text-slate-500">#{idx + 1}</span>
-                      <div className="w-6 h-6 rounded-full overflow-hidden bg-slate-800 shrink-0 border border-slate-700">
-                        {t.avatarUrl ? (
-                          <img src={t.avatarUrl} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-amber-400">
-                            {t.displayName.charAt(0)}
-                          </div>
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* B. BONG BÓNG CHAT TRÊN ĐẦU NHÂN VẬT (TEST HOẶC GỬI CHAT TRỰC TIẾP) */}
+          <div className="p-3 rounded-xl bg-gradient-to-r from-sky-950/40 via-slate-950 to-amber-950/30 border border-sky-500/40 flex flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">💬</span>
+                <div>
+                  <h3 className="text-xs font-black text-sky-300 uppercase">
+                    Bong Bóng Chat Trên Đầu Nhân Vật (Tự Động Khi Khách Bình Luận TikTok)
+                  </h3>
+                  <p className="text-[10px] text-slate-400">
+                    Khi người xem bình luận bất kỳ câu gì trên TikTok Live, câu chat sẽ nổi lên ngay trên đầu nhân vật của họ trong 8 giây!
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => lotoEngine.triggerRandomBotChat()}
+                className="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[10.5px] font-bold shadow active:scale-95 transition-all flex items-center gap-1"
+              >
+                <span>🎲</span>
+                <span>Cho 1 Khán Giả Chat Ngẫu Nhiên</span>
+              </button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <select
+                value={chatSenderName}
+                onChange={(e) => setChatSenderName(e.target.value)}
+                className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-amber-300 font-semibold focus:outline-none focus:border-sky-400 sm:w-44"
+              >
+                <option value="">-- Chọn người ngồi --</option>
+                {tickets.map((t) => (
+                  <option key={t.id} value={t.username}>
+                    {t.displayName}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                type="text"
+                value={chatMessageInput}
+                onChange={(e) => setChatMessageInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSendTestChat()}
+                placeholder="Nhập câu chat muốn hiện lên đầu nhân vật (VD: Ra số 25 đi ad ơi!)..."
+                className="flex-1 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-400"
+              />
+
+              <button
+                onClick={() => handleSendTestChat()}
+                className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-400 hover:brightness-110 text-slate-950 font-black text-xs shadow active:scale-95 transition-all whitespace-nowrap"
+              >
+                💬 Hiện Lên Đầu
+              </button>
+            </div>
+
+            {/* Các câu chat mẫu 1-click */}
+            <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+              <span className="text-slate-400">Chat mẫu nhanh:</span>
+              {[
+                { label: '🎫 "layve"', text: 'layve' },
+                { label: '🎲 "Chẵn (C)"', text: 'Chẵn' },
+                { label: '🎲 "Lẻ (L)"', text: 'Lẻ' },
+                { label: '🔥 "Còn 1 con nữa Kinh!"', text: 'Còn 1 con nữa là em Kinh rồi!' },
+                { label: '🚨 "kinh" (Báo động Kinh giả)', text: 'kinh' },
+              ].map((item, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleSendTestChat(item.text)}
+                  className="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-sky-200 border border-slate-700 hover:border-sky-400 transition-all"
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* C. QUẢN LÝ KHÁN PHÒNG (47 GHẾ) & DANH SÁCH VÉ */}
+          <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-amber-500/40 flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-black text-amber-300 uppercase">
+                    🎟️ Khán Phòng Hội Trường ({tickets.length} vé • {Math.min(tickets.length, 47)}/47 ghế 3D)
+                  </h3>
+                  {gameState.showSpotlightTicket && gameState.spotlightTicketUser && (
+                    <button
+                      onClick={() => lotoEngine.closeSpotlightTicket()}
+                      className="px-2.5 py-0.5 rounded-full bg-yellow-400 text-slate-950 font-black text-[10px] shadow animate-pulse"
+                    >
+                      ✕ Đóng vé đang chiếu ({gameState.spotlightTicketUser})
+                    </button>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Bấm trực tiếp vào người ngồi trên sân khấu hoặc bấm <strong>[👁️ Chiếu vé]</strong> bên dưới để phóng to vé lên màn hình Live.
+                </p>
+              </div>
+
+              <label className="flex items-center gap-1.5 cursor-pointer select-none text-[10.5px] text-amber-200">
+                <input
+                  type="checkbox"
+                  checked={gameState.autoShowOnWaitingKin}
+                  onChange={(e) => lotoEngine.setAutoShowOnWaitingKin(e.target.checked)}
+                  className="w-3.5 h-3.5 accent-amber-500 rounded"
+                />
+                <span>Tự chiếu vé khi có người 4/5 số</span>
+              </label>
+            </div>
+
+            {/* Cụm nút thêm khách & cấp vé thủ công */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  onClick={() => handleAddBatchPlayers(1)}
+                  className="px-2.5 py-1 rounded-lg bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 text-[11px] font-bold border border-emerald-500/50 active:scale-95 transition-all"
+                >
+                  +1 Khách
+                </button>
+                <button
+                  onClick={() => handleAddBatchPlayers(5)}
+                  className="px-2.5 py-1 rounded-lg bg-teal-950/70 hover:bg-teal-900 text-teal-300 text-[11px] font-bold border border-teal-500/50 active:scale-95 transition-all"
+                >
+                  +5 Khách
+                </button>
+                <button
+                  onClick={() => handleAddBatchPlayers(10)}
+                  className="px-2.5 py-1 rounded-lg bg-indigo-950/70 hover:bg-indigo-900 text-indigo-300 text-[11px] font-bold border border-indigo-500/50 active:scale-95 transition-all"
+                >
+                  +10 Khách
+                </button>
+                <button
+                  onClick={() => handleFillAudience(31)}
+                  className="px-3 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-400 hover:brightness-110 text-slate-950 font-black text-[11px] shadow active:scale-95 transition-all"
+                >
+                  🔥 Lấp Đầy 31 Ghế
+                </button>
+                <button
+                  onClick={() => handleFillAudience(47)}
+                  className="px-2.5 py-1 rounded-lg bg-amber-950/80 hover:bg-amber-900 text-amber-200 font-bold text-[11px] border border-amber-500/50 active:scale-95 transition-all"
+                >
+                  🎪 Đầy 47 Ghế
+                </button>
+                <button
+                  onClick={handleClearAudience}
+                  className="px-2.5 py-1 rounded-lg bg-rose-950/70 hover:bg-rose-900 text-rose-300 text-[11px] font-semibold border border-rose-800/50 active:scale-95 transition-all"
+                >
+                  🧹 Xóa hết
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-1 min-w-[240px]">
+                <input
+                  type="text"
+                  value={newPlayerName}
+                  onChange={(e) => setNewPlayerName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddNewPlayer()}
+                  placeholder="Nhập tên khách TikTok để cấp vé..."
+                  className="flex-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
+                />
+                <button
+                  onClick={handleAddNewPlayer}
+                  className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs whitespace-nowrap active:scale-95 transition-all"
+                >
+                  + Cấp vé
+                </button>
+              </div>
+            </div>
+
+            {/* Danh sách vé cuộn gọn */}
+            {tickets.length > 0 && (
+              <div className="max-h-52 overflow-y-auto flex flex-col gap-1 pr-1">
+                {tickets.map((t, idx) => {
+                  const isSpotlight =
+                    gameState.showSpotlightTicket &&
+                    gameState.spotlightTicketUser?.toLowerCase() === t.username.toLowerCase();
+                  const isWaiting = t.waitingNumbers.length > 0 && !t.hasWon;
+
+                  return (
+                    <div
+                      key={t.id}
+                      className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs transition-all ${
+                        isSpotlight
+                          ? 'bg-amber-500/20 border-yellow-400 ring-1 ring-yellow-400'
+                          : t.hasWon
+                          ? 'bg-yellow-950/60 border-yellow-500 text-yellow-200'
+                          : isWaiting
+                          ? 'bg-red-950/50 border-red-500/70 text-red-200'
+                          : 'bg-slate-900/70 border-slate-800 text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-mono text-[10px] text-slate-500">#{idx + 1}</span>
+                        <span className="font-bold truncate max-w-[130px]">{t.displayName}</span>
+                        {t.isVip && (
+                          <span className="text-[9px] font-black text-slate-950 bg-yellow-400 px-1.5 rounded">
+                            👑 VIP
+                          </span>
                         )}
+                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-black/50 border border-white/10 text-amber-300">
+                          {t.markedCount}/15
+                        </span>
+                        {t.hasWon ? (
+                          <span className="text-[9.5px] font-black text-yellow-300 bg-red-600 px-1.5 rounded animate-pulse">
+                            👑 KINH
+                          </span>
+                        ) : isWaiting ? (
+                          <span className="text-[9.5px] font-black text-yellow-300 bg-red-700 px-1.5 rounded animate-pulse">
+                            🔥 Chờ: {t.waitingNumbers.join(', ')}
+                          </span>
+                        ) : null}
                       </div>
-                      <span className="font-bold truncate max-w-[120px]">{t.displayName}</span>
-                      {t.isVip && (
-                        <span className="text-[9.5px] font-black text-slate-950 bg-yellow-400 px-1.5 rounded">
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() =>
+                            isSpotlight
+                              ? lotoEngine.closeSpotlightTicket()
+                              : lotoEngine.setSpotlightTicket(t.username)
+                          }
+                          className={`px-2 py-0.5 rounded text-[10.5px] font-bold border transition-all ${
+                            isSpotlight
+                              ? 'bg-yellow-400 text-slate-950 border-yellow-300 font-black'
+                              : 'bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 border-amber-500/50'
+                          }`}
+                        >
+                          {isSpotlight ? '✕ Đóng' : '👁️ Chiếu vé'}
+                        </button>
+                        <button
+                          onClick={() =>
+                            lotoEngine.upgradeToVip(t.username, t.displayName, t.avatarUrl, 'Vé Vàng VIP', 10)
+                          }
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${
+                            t.isVip
+                              ? 'bg-yellow-500 text-slate-950 border-yellow-300'
+                              : 'bg-slate-800 hover:bg-slate-700 text-yellow-300 border-slate-700'
+                          }`}
+                          title="Nâng cấp Vé Vàng VIP"
+                        >
                           👑 VIP
-                        </span>
-                      )}
-                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-black/50 border border-white/10 text-amber-300">
-                        {t.markedCount}/15 số
-                      </span>
-                      {t.hasWon ? (
-                        <span className="text-[10px] font-black text-yellow-300 bg-red-600 px-1.5 rounded animate-pulse">
-                          👑 KINH
-                        </span>
-                      ) : isWaiting ? (
-                        <span className="text-[10px] font-black text-yellow-300 bg-red-700 px-1.5 rounded animate-pulse">
-                          🔥 Chờ: {t.waitingNumbers.join(', ')}
-                        </span>
-                      ) : null}
+                        </button>
+                        <button
+                          onClick={() => lotoEngine.simulateFakeKinh(t.username)}
+                          className="px-1.5 py-0.5 rounded bg-rose-950/80 hover:bg-rose-900 text-rose-200 text-[10px] font-bold border border-rose-700"
+                          title="Bắt Kinh giả & phạt người này"
+                        >
+                          🚨 Phạt
+                        </button>
+                        <button
+                          onClick={() => lotoEngine.rerollTicket(t.username)}
+                          className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] border border-slate-700"
+                          title="Đổi vé khác"
+                        >
+                          🎲
+                        </button>
+                        <button
+                          onClick={() => lotoEngine.removeTicket(t.username)}
+                          className="px-1.5 py-0.5 rounded bg-rose-950 hover:bg-rose-900 text-rose-300 text-[10px] border border-rose-800"
+                          title="Xóa"
+                        >
+                          ✕
+                        </button>
+                      </div>
                     </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        onClick={() =>
-                          isSpotlight
-                            ? lotoEngine.closeSpotlightTicket()
-                            : lotoEngine.setSpotlightTicket(t.username)
-                        }
-                        className={`px-2.5 py-1 rounded text-[11px] font-bold border transition-all active:scale-95 ${
-                          isSpotlight
-                            ? 'bg-yellow-400 text-slate-950 border-yellow-300 shadow font-black'
-                            : 'bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 border-amber-500/50'
-                        }`}
-                        title={isSpotlight ? 'Đóng vé khỏi màn hình' : 'Chiếu vé này lên màn hình Live'}
-                      >
-                        {isSpotlight ? '✕ Đang chiếu' : '👁️ Chiếu vé'}
-                      </button>
-                      <button
-                        onClick={() => lotoEngine.upgradeToVip(t.username, t.displayName, t.avatarUrl, 'Vé Vàng VIP', 10)}
-                        className={`px-2 py-1 rounded text-[10px] font-bold border ${
-                          t.isVip
-                            ? 'bg-yellow-500 text-slate-950 border-yellow-300'
-                            : 'bg-slate-800 hover:bg-slate-700 text-yellow-300 border-slate-700'
-                        }`}
-                        title="Cấp Vé Vàng VIP & Xin Vía Lồng Cầu cho người này"
-                      >
-                        👑 VIP
-                      </button>
-                      <button
-                        onClick={() => lotoEngine.simulateFakeKinh(t.username)}
-                        className="px-2 py-1 rounded bg-rose-950/80 hover:bg-rose-900 text-rose-200 text-[10px] font-bold border border-rose-700"
-                        title="Bắt Kinh giả & phạt người này trên sân khấu"
-                      >
-                        🚨 Phạt
-                      </button>
-                      <button
-                        onClick={() => lotoEngine.rerollTicket(t.username)}
-                        className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] border border-slate-700"
-                        title="Đổi bộ số mới cho vé này"
-                      >
-                        🎲 Đổi
-                      </button>
-                      <button
-                        onClick={() => lotoEngine.removeTicket(t.username)}
-                        className="px-2 py-1 rounded bg-rose-950 hover:bg-rose-900 text-rose-300 text-[10px] border border-rose-800"
-                        title="Xóa vé"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+      {/* =====================================================================
+          TAB 2: KẾT NỐI TIKTOK & TỰ ĐỘNG PHÁT LIVE (1-CLICK AUTO-LIVE & OBS)
+         ===================================================================== */}
+      {activeTab === 'autolive' && (
+        <div className="flex flex-col gap-3">
+          {/* 1. HỘP TỔNG LỆNH 1-CLICK AUTO-LIVE TIKTOK */}
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-red-950/50 via-slate-950 to-amber-950/40 border-2 border-amber-500/60 shadow-xl flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <span className="text-2xl">🚀</span>
+                <div>
+                  <h3 className="text-sm font-black text-amber-300 uppercase">
+                    Tự Động Kết Nối TikTok Live & Treo Máy 24/7 (1-Click Auto-Live)
+                  </h3>
+                  <p className="text-[11px] text-slate-300">
+                    Chỉ cần nhập tài khoản TikTok của bạn và bấm nút dưới đây: Hệ thống tự động mở cửa sổ Sân Khấu 9:16, tự động canh bắt sóng phòng Live và tự động chạy game Lô Tô xuyên đêm!
+                  </p>
+                </div>
+              </div>
+
+              {tikTokStatus?.isConnected ? (
+                <span className="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-xs font-black flex items-center gap-1.5 animate-pulse">
+                  <span>🟢</span>
+                  <span>Đang kết nối: @{tikTokStatus.username}</span>
+                </span>
+              ) : (
+                <span className="px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-xs font-semibold">
+                  ⚪ Chưa kết nối phòng Live
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex-1 flex items-center bg-slate-900 border border-amber-500/50 rounded-xl px-3 py-2">
+                <span className="text-amber-400 font-black text-sm mr-1.5">@</span>
+                <input
+                  type="text"
+                  value={tiktokInput}
+                  onChange={(e) => setTiktokInput(e.target.value.replace(/^@/, ''))}
+                  placeholder="Nhập ID tài khoản TikTok của bạn (VD: gánh_hát_lô_tô)..."
+                  className="bg-transparent text-xs text-white focus:outline-none w-full font-bold"
+                />
+              </div>
+
+              <button
+                onClick={() => handleOneClickAutoLive(false)}
+                disabled={autoLiveLoading}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-red-600 via-amber-500 to-yellow-400 hover:brightness-110 text-slate-950 font-black text-xs uppercase tracking-wide shadow-[0_0_20px_rgba(245,158,11,0.5)] active:scale-95 transition-all flex items-center justify-center gap-1.5"
+              >
+                <span>🚀</span>
+                <span>{autoLiveLoading ? 'Đang kích hoạt...' : 'Bật Tự Động Live Toàn Diện'}</span>
+              </button>
+
+              {tikTokStatus?.isConnected && (
+                <button
+                  onClick={() => onDisconnectTikTok?.()}
+                  className="px-3.5 py-2 rounded-xl bg-rose-950 hover:bg-rose-900 border border-rose-700 text-rose-200 font-bold text-xs"
+                >
+                  ⏹ Ngắt kết nối
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-300 pt-1">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={autoWatchTikTok}
+                  onChange={(e) => setAutoWatchTikTok(e.target.checked)}
+                  className="w-3.5 h-3.5 accent-amber-500 rounded"
+                />
+                <span>
+                  <strong>Tự động canh sóng (Auto-Watch 15s):</strong> Hễ bạn bấm <em>Phát trực tiếp (Go LIVE)</em> trên TikTok là hệ thống tự bắt sóng ngay!
+                </span>
+              </label>
+            </div>
+
+            {autoLiveStatusMsg && (
+              <div className="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-xs text-emerald-200 font-semibold">
+                {autoLiveStatusMsg}
+              </div>
+            )}
+
+            {tikTokStatus?.error && (
+              <div className="p-2.5 rounded-xl bg-amber-950/50 border border-amber-500/40 text-[11px] text-amber-200">
+                💡 <strong>Trạng thái phòng Live:</strong> {tikTokStatus.error} (Hệ thống đang bật chế độ Tự Động Canh Sóng — ngay khi tài khoản <strong>@{tiktokInput || 'của bạn'}</strong> lên sóng trên TikTok, app sẽ tự động kết nối!)
+              </div>
+            )}
+          </div>
+
+          {/* 2. KẾT NỐI OBS STUDIO / TIKTOK LIVE STUDIO TỰ ĐỘNG */}
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h4 className="text-xs font-black text-amber-300 uppercase flex items-center gap-1.5">
+                  <span>🎥</span>
+                  <span>Nguồn Phát Hình Ảnh & Âm Thanh Lên OBS / TikTok LIVE Studio</span>
+                </h4>
+                <p className="text-[10.5px] text-slate-400">
+                  Mở cửa sổ Sân Khấu 9:16 độc lập hoặc dán Link OBS vào mục <strong>Liên kết (Browser Source)</strong> kích thước <strong>1080x1920</strong>.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => handleLaunchStageWindow(false)}
+                  className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow active:scale-95 transition-all flex items-center gap-1"
+                >
+                  <span>🖥️</span>
+                  <span>Mở Cửa Sổ Sân Khấu 9:16</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(obsStageUrl);
+                    setCopiedObs(true);
+                    setTimeout(() => setCopiedObs(false), 2500);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs border border-amber-500/40 active:scale-95 transition-all"
+                >
+                  {copiedObs ? '✓ Đã chép Link OBS' : '📋 Chép Link OBS (lvh.me)'}
+                </button>
+
+                <button
+                  onClick={() => setShowObsAdvanced(!showObsAdvanced)}
+                  className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-[11px] border border-slate-700"
+                >
+                  ⚙️ OBS WebSocket / RTMP {showObsAdvanced ? '▲' : '▼'}
+                </button>
+              </div>
+            </div>
+
+            <div className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs text-amber-300 select-all">
+              {obsStageUrl}
+            </div>
+
+            {showObsAdvanced && (
+              <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-700 flex flex-col gap-2.5 text-xs">
+                <div className="font-bold text-amber-300">
+                  ⚡ Điều Khiển OBS Studio Tự Động Qua OBS WebSocket (Cổng 4455):
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    value={obsWebSocketUrl}
+                    onChange={(e) => setObsWebSocketUrl(e.target.value)}
+                    placeholder="ws://127.0.0.1:4455"
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono text-xs"
+                  />
+                  <input
+                    type="password"
+                    value={obsPassword}
+                    onChange={(e) => setObsPassword(e.target.value)}
+                    placeholder="Mật khẩu OBS WebSocket (nếu có)..."
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs"
+                  />
+                  <input
+                    type="text"
+                    value={rtmpServer}
+                    onChange={(e) => setRtmpServer(e.target.value)}
+                    placeholder="RTMP Server URL TikTok (tùy chọn)..."
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono text-xs"
+                  />
+                  <input
+                    type="password"
+                    value={rtmpStreamKey}
+                    onChange={(e) => setRtmpStreamKey(e.target.value)}
+                    placeholder="RTMP Stream Key TikTok (tùy chọn)..."
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono text-xs"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    onClick={() => handleOneClickAutoLive(true)}
+                    className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-black text-xs shadow active:scale-95 transition-all"
+                  >
+                    🎬 Tự Động Nạp Scene & Bấm Start Stream Trên OBS
+                  </button>
+                  <span className="text-[10px] text-slate-400">
+                    (Trong OBS: Vào menu <em>Công cụ &rarr; Cài đặt máy chủ WebSocket &rarr; Bật</em>)
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 3. LINK & MÃ QR CẦM VÉ TRÊN ĐIỆN THOẠI (/VE) */}
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-yellow-500/40 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 className="text-xs font-black text-yellow-300 uppercase flex items-center gap-1.5">
+                <span>📱</span>
+                <span>Phát Vé Điện Tử Cho Điện Thoại Khán Giả (/ve)</span>
+              </h4>
+              <p className="text-[11px] text-slate-300 mt-0.5">
+                Link cầm vé: <strong className="text-white font-mono">{networkInfo?.ticketUrl || 'http://localhost:3000/ve'}</strong>
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const url = networkInfo?.ticketUrl || window.location.origin + '/ve';
+                  navigator.clipboard.writeText(url);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2500);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700"
+              >
+                {copied ? '✓ Đã chép link' : '📋 Chép link /ve'}
+              </button>
+
+              <button
+                onClick={() => setShowQr(true)}
+                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 text-slate-950 text-xs font-black shadow"
+              >
+                🔍 Hiện Mã QR
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* 3. PHÁT VÉ ĐIỆN TỬ CHO TỪNG THIẾT BỊ / ĐIỆN THOẠI KHÁN GIẢ (TÙY CHỌN) */}
-      <div className="bg-gradient-to-r from-amber-950/70 via-slate-900 to-amber-950/70 p-3.5 rounded-2xl border border-yellow-500/50 shadow-md flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-yellow-500/20 border border-yellow-400/50 flex items-center justify-center text-xl shadow-inner">
-            📱
+      {/* =====================================================================
+          TAB 3: VŨ CÔNG SÂN KHẤU, HIỆU ỨNG CAO TRÀO & GIẢ LẬP QUÀ TẶNG
+         ===================================================================== */}
+      {activeTab === 'effects' && (
+        <div className="flex flex-col gap-3">
+          {/* 1. BỘ NÚT KÍCH HOẠT HIỆU ỨNG CAO TRÀO */}
+          <div className="p-3 rounded-xl bg-slate-950/80 border border-amber-500/40 flex flex-col gap-2">
+            <span className="text-xs font-black text-amber-300 uppercase">
+              ⚡ Kích Hoạt Nhanh Hiệu Ứng Cao Trào Phòng Live
+            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => lotoEngine.simulateFakeKinh()}
+                className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-rose-600 to-orange-600 hover:brightness-110 text-white text-[11px] font-black border border-yellow-300/70 shadow active:scale-95 transition-all"
+              >
+                🚨 Test Bắt Kinh Giả (Phạt Hài Hước)
+              </button>
+
+              <button
+                onClick={() => lotoEngine.simulateTensionWaiting(3)}
+                className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-red-700 to-amber-600 hover:brightness-110 text-yellow-100 text-[11px] font-black border border-yellow-300/70 shadow active:scale-95 transition-all"
+              >
+                🔥 Test Cao Trào Chờ Kinh (3 Người 4/5)
+              </button>
+
+              <button
+                onClick={() => {
+                  const first = tickets[0];
+                  const uname = first ? first.username : 'dai_gia_vip';
+                  const dname = first ? first.displayName : 'Đại Gia VIP';
+                  const avt = first ? first.avatarUrl : '/assets/loto/patron-1.png';
+                  lotoEngine.upgradeToVip(uname, dname, avt, 'Hoa Hồng Vàng', 99);
+                  lotoEngine.setSpotlightTicket(uname);
+                }}
+                className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-500 hover:brightness-110 text-slate-950 text-[11px] font-black border border-yellow-200 shadow active:scale-95 transition-all"
+              >
+                👑 Test Đại Gia Vé VIP & Xin Vía
+              </button>
+
+              <button
+                onClick={() => lotoEngine.simulatePredictions(10)}
+                className="px-3 py-1.5 rounded-lg bg-sky-900 hover:bg-sky-800 text-sky-100 text-[11px] font-bold border border-sky-400/50 shadow active:scale-95 transition-all"
+              >
+                🎲 Test 10 Khách Đoán Chẵn/Lẻ
+              </button>
+
+              <button
+                onClick={handleSimulateWin}
+                className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-300 text-slate-950 font-black text-[11px] border border-white shadow active:scale-95 transition-all"
+              >
+                👑 Test Nổ KINH!
+              </button>
+            </div>
           </div>
-          <div>
-            <div className="text-xs font-black text-yellow-300 flex items-center gap-2">
-              <span>PHÁT VÉ ĐIỆN TỬ CHO TỪNG KHÁN GIẢ (ĐIỆN THOẠI)</span>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[9px] font-mono border border-emerald-500/40">
-                🟢 Real-time Sync
+
+          {/* 2. VŨ CÔNG NHẢY MÚA SÂN KHẤU (7 ĐIỆU NHẢY GỌN ĐẸP, KHÔNG TRÙNG LẶP) */}
+          <div className="p-3 rounded-xl bg-slate-950/80 border border-pink-500/40 flex flex-col gap-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-pink-300 uppercase">
+                  💃 Vũ Công Nhảy Múa Trên Sân Khấu (7 Trend TikTok)
+                </span>
+                {gameState.danceStyle && (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black uppercase animate-pulse">
+                    Đang nhảy: {gameState.danceStyle}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {gameState.danceStyle && (
+                  <button
+                    onClick={handleStopDance}
+                    className="px-2.5 py-1 rounded-lg bg-red-900 hover:bg-red-800 text-red-100 text-[10.5px] font-bold border border-red-500/60"
+                  >
+                    ⏹️ Dừng vũ công
+                  </button>
+                )}
+
+                <label className="cursor-pointer px-2.5 py-1 rounded-lg bg-pink-950 hover:bg-pink-900 border border-pink-500/50 text-pink-200 text-[10.5px] font-bold flex items-center gap-1">
+                  <span>📁 Nạp Video Nhảy (.mp4/.webm)</span>
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm"
+                    onChange={handleDanceVideoUpload}
+                    disabled={isUploadingDance}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-1.5">
+              {[
+                { id: 'anime' as LotoDanceStyle, icon: '🎀', label: '1. Chika Vẫy Tay', url: '/assets/loto/dancers/dance-anime.webm' },
+                { id: 'kpop_trio' as LotoDanceStyle, icon: '✨', label: '2. K-Pop Trio', url: '/assets/loto/dancers/dance-kpop-trio.webm' },
+                { id: 'haaland' as LotoDanceStyle, icon: '⚡', label: '3. Haaland Phonk', url: '/assets/loto/dancers/dance-haaland.webm' },
+                { id: 'toctoc' as LotoDanceStyle, icon: '🕺', label: '4. Toc Toc Dance', url: '/assets/loto/dancers/dance-toctoc.webm' },
+                { id: 'cat_meme' as LotoDanceStyle, icon: '🐱', label: '5. Mèo Nhảy', url: '/assets/loto/dancers/dance-cat-meme.webm' },
+                { id: 'croc_duo' as LotoDanceStyle, icon: '🐊', label: '6. Cá Sấu Đôi', url: '/assets/loto/dancers/dance-croc-duo.webm' },
+                { id: 'troupe' as LotoDanceStyle, icon: '👯‍♀️', label: '7. Song Ca Đôi', url: undefined },
+              ].map((d) => (
+                <button
+                  key={d.id}
+                  onClick={() => handleTriggerDance(d.id, d.url, false)}
+                  className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-all active:scale-95 ${
+                    gameState.danceStyle === d.id
+                      ? 'bg-gradient-to-r from-pink-600 to-amber-500 text-white border-yellow-300 shadow-lg scale-105'
+                      : 'bg-slate-900 border-slate-800 text-slate-200 hover:border-pink-500/60'
+                  }`}
+                >
+                  <span className="text-xl">{d.icon}</span>
+                  <span className="text-[10px] font-bold text-center leading-tight">{d.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {danceUploadMsg && (
+              <span className="text-[10px] text-emerald-400 font-semibold">{danceUploadMsg}</span>
+            )}
+          </div>
+
+          {/* 3. GIẢ LẬP QUÀ TẶNG TIKTOK & LỜI RAO MC */}
+          <div className="p-3 rounded-xl bg-slate-950/80 border border-rose-500/40 flex flex-col gap-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-black text-yellow-300 uppercase">
+                🎁 Giả Lập Khách Tặng Quà TikTok & Lời Rao AI MC
               </span>
+              <input
+                type="text"
+                value={simulatedGifterName}
+                onChange={(e) => setSimulatedGifterName(e.target.value)}
+                placeholder="Tên người tặng (bỏ trống = ngẫu nhiên)..."
+                className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-[11px] text-white w-52 focus:outline-none focus:border-yellow-400"
+              />
             </div>
-            <p className="text-[11px] text-slate-300 mt-0.5">
-              Khán giả truy cập: <strong className="text-white font-mono">{networkInfo?.ticketUrl || 'http://localhost:3000/ve'}</strong> (hoặc quét mã QR)
-            </p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <button
+                onClick={() => handleSimulateGift('Hoa Hồng', 1)}
+                className="p-2 rounded-xl bg-rose-950/70 hover:bg-rose-900 border border-rose-500/50 text-xs font-bold text-rose-200 flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                <span>🌹</span>
+                <span>Hoa Hồng (1 xu)</span>
+              </button>
+              <button
+                onClick={() => handleSimulateGift('Cây Kem', 10)}
+                className="p-2 rounded-xl bg-amber-950/70 hover:bg-amber-900 border border-yellow-500/50 text-xs font-bold text-amber-200 flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                <span>🍦</span>
+                <span>Cây Kem (10 xu)</span>
+              </button>
+              <button
+                onClick={() => handleSimulateGift('Vương Miện', 99)}
+                className="p-2 rounded-xl bg-purple-950/70 hover:bg-purple-900 border border-purple-500/50 text-xs font-bold text-purple-200 flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                <span>👑</span>
+                <span>Vương Miện (99 xu)</span>
+              </button>
+              <button
+                onClick={() => handleSimulateGift('Tên Lửa', 1000)}
+                className="p-2 rounded-xl bg-gradient-to-r from-red-600 to-amber-500 text-xs font-black text-white border border-yellow-300 flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                <span>🚀</span>
+                <span>Tên Lửa (1000 xu)</span>
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {MC_PROMPTS.map((prompt, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => soundEngine.speak(prompt.text)}
+                  className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-amber-950 border border-amber-500/40 text-[10px] text-amber-200 font-semibold flex items-center gap-1"
+                >
+                  <span>🔊</span>
+                  <span>{prompt.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
+      )}
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              const url = networkInfo?.ticketUrl || window.location.origin + '/ve';
-              navigator.clipboard.writeText(url);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 2500);
-            }}
-            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 flex items-center gap-1.5 active:scale-95 transition-all shadow"
-          >
-            <span>{copied ? '✓ Đã chép link' : '📋 Sao chép link vé'}</span>
-          </button>
+      {/* =====================================================================
+          TAB 4: ÂM THANH, GIỌNG HÒ & KHO 90 BÀI HÁT LÔ TÔ
+         ===================================================================== */}
+      {activeTab === 'audio' && (
+        <div className="flex flex-col gap-3">
+          {/* 1. TỐC ĐỘ QUAY, GIỌNG MC & BEAT ĐÀN ORGAN */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-slate-400 font-semibold text-[11px]">
+                ⏱️ Tốc độ quay tự động: <strong className="text-amber-300">{gameState.spinInterval} giây/số</strong>
+              </span>
+              <input
+                type="range"
+                min="10"
+                max="30"
+                step="2"
+                value={gameState.spinInterval}
+                onChange={(e) => lotoEngine.setSpinInterval(Number(e.target.value))}
+                className="w-full accent-amber-500 cursor-pointer"
+              />
+              <span className="text-[10px] text-slate-500">Khuyên dùng 16-20s để nghe trọn câu hò</span>
+            </div>
 
-          <button
-            onClick={() => setShowQr(true)}
-            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 hover:brightness-110 text-slate-950 text-xs font-black shadow flex items-center gap-1.5 active:scale-95 transition-all"
-          >
-            <span>🔍 Mở Mã QR</span>
-          </button>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-slate-400 font-semibold text-[11px]">🎙️ Giọng MC Xướng Số:</span>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  onClick={() => {
+                    setLotoVoice('vi-VN-NamMinhNeural');
+                    soundEngine.setLotoVoice('vi-VN-NamMinhNeural');
+                  }}
+                  className={`py-1.5 px-2 rounded-lg border font-bold text-[11px] ${
+                    lotoVoice === 'vi-VN-NamMinhNeural'
+                      ? 'bg-amber-500 text-slate-950 border-amber-400'
+                      : 'bg-slate-900 text-slate-300 border-slate-800'
+                  }`}
+                >
+                  🧔 Nam Minh
+                </button>
+                <button
+                  onClick={() => {
+                    setLotoVoice('vi-VN-HoaiMyNeural');
+                    soundEngine.setLotoVoice('vi-VN-HoaiMyNeural');
+                  }}
+                  className={`py-1.5 px-2 rounded-lg border font-bold text-[11px] ${
+                    lotoVoice === 'vi-VN-HoaiMyNeural'
+                      ? 'bg-amber-500 text-slate-950 border-amber-400'
+                      : 'bg-slate-900 text-slate-300 border-slate-800'
+                  }`}
+                >
+                  👩 Hoài My
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <span className="text-slate-400 font-semibold text-[11px]">🎹 Nhạc Đệm & Điều Khiển:</span>
+              <div className="flex items-center gap-2">
+                <label className="flex-1 flex items-center gap-1.5 p-1.5 rounded-lg bg-slate-900 border border-slate-800 cursor-pointer text-[11px]">
+                  <input
+                    type="checkbox"
+                    checked={useBeat}
+                    onChange={(e) => {
+                      setUseBeat(e.target.checked);
+                      soundEngine.setLotoUseBeat(e.target.checked);
+                    }}
+                    className="w-3.5 h-3.5 accent-amber-500 rounded"
+                  />
+                  <span>Đệm Beat Organ</span>
+                </label>
+                <button
+                  onClick={() => soundEngine.stopLotoCall()}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold border border-slate-700"
+                >
+                  ⏹️ Dừng tiếng
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. KHO 90 BÀI HÁT LÔ TÔ NGƯỜI THẬT */}
+          <div className="p-3 rounded-xl bg-slate-950/80 border border-emerald-500/30 flex flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-emerald-300 uppercase">
+                  🎵 Kho Bài Hát Lô Tô Người Thật ({availableSongs.length}/90 số)
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  (Bấm ▶️ để nghe thử hoặc 🎲 để quay ra đúng số đó)
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-slate-400">Thay MP3 số:</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="90"
+                  value={uploadNum}
+                  onChange={(e) => setUploadNum(Math.max(1, Math.min(90, Number(e.target.value))))}
+                  className="w-12 px-1.5 py-0.5 text-center font-mono font-bold bg-slate-900 border border-slate-700 rounded text-amber-400 text-xs"
+                />
+                <label className="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white font-bold text-[10px] cursor-pointer">
+                  <span>{isUploading ? '⏳ Đang nạp...' : '📁 Chọn MP3'}</span>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={handleUploadFile}
+                    disabled={isUploading}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {uploadMsg && (
+              <div className="text-[11px] font-semibold text-emerald-400">{uploadMsg}</div>
+            )}
+
+            <div className="max-h-44 overflow-y-auto flex flex-wrap gap-1 p-2 rounded-lg bg-slate-900/90 border border-slate-800">
+              {availableSongs.map((s) => (
+                <div
+                  key={s}
+                  className="inline-flex items-center rounded border border-emerald-500/30 bg-slate-950 overflow-hidden text-[10px]"
+                >
+                  <button
+                    onClick={() => soundEngine.playLotoCall(s)}
+                    className="px-1.5 py-0.5 bg-emerald-950/80 hover:bg-emerald-800 text-emerald-300 font-mono font-bold"
+                    title={`Nghe thử bài số ${s}`}
+                  >
+                    ▶️ #{s}
+                  </button>
+                  <button
+                    onClick={() => lotoEngine.spinNext(s)}
+                    className="px-1.5 py-0.5 bg-amber-950/90 hover:bg-amber-800 border-l border-amber-600/40 text-amber-300 font-bold text-[9px]"
+                    title={`Quay trúng số ${s}`}
+                  >
+                    🎲
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
+      )}
+
+      {/* 3. THANH ĐỌC LỜI MC NHANH (LUÔN NẰM GỌN DƯỚI ĐÁY) */}
+      <div className="flex gap-2 pt-1 border-t border-slate-800/80">
+        <input
+          type="text"
+          value={customSpeak}
+          onChange={(e) => setCustomSpeak(e.target.value)}
+          placeholder="🔊 Nhập câu bất kỳ để AI MC đọc vang trên Live (Enter để đọc)..."
+          onKeyDown={(e) => e.key === 'Enter' && handleSpeak()}
+          className="flex-1 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+        />
+        <button
+          onClick={handleSpeak}
+          className="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase transition-all"
+        >
+          Đọc ngay
+        </button>
       </div>
 
       {/* MODAL XEM MÃ QR PHÁT VÉ */}
       {showQr && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="relative w-full max-w-sm rounded-3xl bg-slate-950 border-2 border-yellow-400 p-6 text-center text-white shadow-2xl flex flex-col items-center">
             <button
               onClick={() => setShowQr(false)}
-              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center text-sm shadow"
+              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center text-sm"
             >
               ✕
             </button>
-
             <span className="text-3xl mb-1">📱 🎪 📱</span>
-            <h3 className="text-base font-black text-yellow-300 uppercase tracking-wide">
+            <h3 className="text-base font-black text-yellow-300 uppercase">
               MÃ QR CẦM VÉ TRÊN TAY
             </h3>
-            <p className="text-[11px] text-slate-300 mt-1 mb-4 leading-relaxed">
-              Khán giả quét mã này bằng Camera điện thoại để nhận <strong>1 tờ vé riêng biệt</strong>, tự động dò số đồng bộ với bàn quay!
+            <p className="text-[11px] text-slate-300 mt-1 mb-4">
+              Khán giả quét mã này bằng điện thoại để nhận <strong>1 tờ vé riêng biệt</strong>, tự động dò số đồng bộ với bàn quay!
             </p>
-
             <div className="p-3 bg-white rounded-2xl shadow-xl border-4 border-yellow-400">
               <img
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
@@ -957,855 +1519,18 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({
                 className="w-48 h-48 object-contain"
               />
             </div>
-
             <div className="mt-4 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-[11px] font-mono text-amber-300 break-all select-all">
               {networkInfo?.ticketUrl || window.location.origin + '/ve'}
             </div>
-
             <button
               onClick={() => setShowQr(false)}
-              className="mt-4 w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs"
+              className="mt-4 w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs"
             >
               Đóng lại
             </button>
           </div>
         </div>
       )}
-
-      {/* 3. CẤU HÌNH TỐC ĐỘ QUAY TỰ ĐỘNG */}
-      <div className="flex items-center gap-4 bg-slate-950/60 p-3 rounded-xl border border-slate-800 text-xs">
-        <span className="text-slate-400">Thời gian giữa 2 lần gọi số:</span>
-        <input
-          type="range"
-          min="10"
-          max="30"
-          step="2"
-          value={gameState.spinInterval}
-          onChange={(e) => lotoEngine.setSpinInterval(Number(e.target.value))}
-          className="w-48 accent-amber-500 cursor-pointer"
-        />
-        <span className="font-mono font-bold text-amber-400">{gameState.spinInterval} giây</span>
-        <span className="text-[11px] text-slate-500 italic">
-          (Khuyên dùng 16-20s để AI hát trọn vẹn cả câu hò và chốt số)
-        </span>
-      </div>
-
-      {/* 3. CẤU HÌNH ÂM THANH & GIỌNG HÁT LÔ TÔ */}
-      <div className="bg-slate-950/70 p-3.5 rounded-xl border border-amber-500/30 flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
-          <div className="flex items-center gap-2">
-            <span className="text-base">🎵</span>
-            <span className="text-xs font-bold text-amber-300 uppercase tracking-wide">
-              Âm Thanh & Giọng Hát Lô Tô Hội Chợ
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowCloneStudio(!showCloneStudio)}
-              className="text-[11px] text-pink-400 hover:text-pink-300 font-bold underline flex items-center gap-1 cursor-pointer transition-all"
-            >
-              <span>🎙️</span>
-              <span>{showCloneStudio ? 'Đóng AI Voice Clone Studio' : 'AI Voice Clone: Nhân Bản Giọng Hằng Ny 100%'}</span>
-            </button>
-            <span className="text-slate-600">|</span>
-            <button
-              onClick={() => setShowSunoGuide(!showSunoGuide)}
-              className="text-[11px] text-amber-400 hover:text-amber-300 underline flex items-center gap-1 cursor-pointer"
-            >
-              <span>💡</span>
-              <span>{showSunoGuide ? 'Đóng hướng dẫn Suno AI' : 'Tạo bằng Suno AI'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* AI Voice Cloning Studio (Clone giọng ca sĩ Hằng Ny 100% không ghép nối) */}
-        {showCloneStudio && (
-          <div className="p-3.5 rounded-xl bg-gradient-to-br from-pink-950/40 via-purple-950/30 to-slate-950 border border-pink-500/40 text-xs flex flex-col gap-3 shadow-lg">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-pink-500/20 pb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🎙️</span>
-                <div>
-                  <h4 className="font-bold text-pink-300 text-xs">AI Voice Cloning Studio: Ngọc Nữ Hằng Ny</h4>
-                  <p className="text-[10px] text-slate-400">
-                    Sử dụng công nghệ AI Voice Cloning để cô ấy tự đọc và gọi mọi số từ 1 đến 90 (100% cùng 1 giọng, không ghép nối)
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-pink-950 border border-pink-500/50 text-[10px] text-pink-200 font-mono font-bold">
-                <span>Đã có giọng clone:</span>
-                <span className="text-amber-300">{cloneStatus.clonedCount}/90 số</span>
-              </div>
-            </div>
-
-            {/* Hướng dẫn 2 cách */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
-              {/* Cột trái: Tải mẫu giọng & Dùng Free trên Web */}
-              <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 flex flex-col gap-2">
-                <span className="font-bold text-amber-300 flex items-center gap-1">
-                  <span>📥</span>
-                  <span>Cách 1: Miễn phí qua Web ElevenLabs / Fish Audio</span>
-                </span>
-                <p className="text-[10px] text-slate-300 leading-relaxed">
-                  1. Tải <b>file mẫu âm thanh giọng chuẩn 1 phút của ca sĩ Hằng Ny</b> về máy:
-                </p>
-                <a
-                  href="/api/loto/clone/sample"
-                  download="hang_ny_loto_sample.mp3"
-                  className="px-3 py-1.5 rounded bg-pink-600 hover:bg-pink-500 text-white font-bold text-center text-[10px] flex items-center justify-center gap-1.5 shadow active:scale-95 transition-all"
-                >
-                  <span>⬇️</span>
-                  <span>Tải Mẫu Giọng Hằng Ny (.mp3 1 phút)</span>
-                </a>
-                <p className="text-[10px] text-slate-300 leading-relaxed">
-                  2. Mở <a href="https://elevenlabs.io" target="_blank" rel="noreferrer" className="text-pink-400 underline font-bold">ElevenLabs.io</a> (free 10,000 ký tự) hoặc <a href="https://fish.audio" target="_blank" rel="noreferrer" className="text-pink-400 underline font-bold">Fish.audio</a>.
-                  <br />
-                  3. Chọn <b>Instant Voice Cloning</b> &rarr; Tải file vừa tải lên &rarr; Nhập câu gọi số và tải file MP3 về nạp vào app bên dưới.
-                </p>
-              </div>
-
-              {/* Cột phải: Kết nối API tự động */}
-              <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 flex flex-col gap-2">
-                <span className="font-bold text-pink-300 flex items-center gap-1">
-                  <span>⚡</span>
-                  <span>Cách 2: Kết nối API ElevenLabs (Tự động 100%)</span>
-                </span>
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-slate-400 w-20 shrink-0">API Key:</span>
-                    <input
-                      type="password"
-                      placeholder={cloneStatus.hasApiKey ? 'Đã lưu: ' + cloneStatus.apiKeyMasked : 'Dán xi-api-key...'}
-                      value={cloneApiKeyInput}
-                      onChange={(e) => setCloneApiKeyInput(e.target.value)}
-                      className="flex-1 px-2 py-1 bg-slate-950 border border-slate-700 rounded text-amber-300 text-[10px] focus:outline-none"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-slate-400 w-20 shrink-0">Voice ID:</span>
-                    <input
-                      type="text"
-                      placeholder="Nhập Voice ID trên ElevenLabs..."
-                      value={cloneVoiceIdInput}
-                      onChange={(e) => setCloneVoiceIdInput(e.target.value)}
-                      className="flex-1 px-2 py-1 bg-slate-950 border border-slate-700 rounded text-pink-300 font-mono text-[10px] focus:outline-none"
-                    />
-                  </div>
-                  <button
-                    onClick={handleSaveCloneConfig}
-                    disabled={cloneLoading}
-                    className="mt-1 px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-bold text-[10px] flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
-                  >
-                    <span>💾</span>
-                    <span>Lưu Cấu Hình API</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Quản lý từng số cụ thể */}
-            <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-slate-900 border border-slate-800">
-              <div className="flex items-center gap-2">
-                <span className="text-slate-300 text-[11px] font-semibold">Tạo / Nạp giọng cho số:</span>
-                <input
-                  type="number"
-                  min="1"
-                  max="90"
-                  value={cloneNumInput}
-                  onChange={(e) => setCloneNumInput(Math.max(1, Math.min(90, Number(e.target.value))))}
-                  className="w-12 px-1.5 py-0.5 text-center font-mono font-bold bg-slate-950 border border-slate-700 rounded text-pink-300 text-xs focus:outline-none"
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                {cloneStatus.hasApiKey && cloneStatus.voiceId && (
-                  <button
-                    onClick={handleGenerateCloneNumber}
-                    disabled={cloneLoading}
-                    className="px-2.5 py-1 rounded bg-gradient-to-r from-pink-600 to-rose-600 hover:brightness-110 text-white font-bold text-[10px] flex items-center gap-1 shadow active:scale-95 transition-all cursor-pointer"
-                  >
-                    <span>⚡</span>
-                    <span>Gọi AI Tạo Số #{cloneNumInput}</span>
-                  </button>
-                )}
-
-                <label className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-bold text-[10px] cursor-pointer flex items-center gap-1 active:scale-95 transition-all">
-                  <span>📁</span>
-                  <span>Nạp file MP3 số #{cloneNumInput}</span>
-                  <input
-                    type="file"
-                    accept="audio/*"
-                    onChange={handleUploadClonedFile}
-                    disabled={cloneLoading}
-                    className="hidden"
-                  />
-                </label>
-
-                {cloneStatus.clonedNumbers.includes(cloneNumInput) && (
-                  <button
-                    onClick={() => soundEngine.playLotoCall(cloneNumInput)}
-                    className="px-2 py-1 rounded bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all"
-                  >
-                    <span>▶️</span>
-                    <span>Nghe Thử</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {cloneMsg && (
-              <div className={`text-[11px] font-semibold ${cloneMsg.includes('Lỗi') ? 'text-rose-400' : 'text-emerald-400'}`}>
-                {cloneMsg}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Modal / Hướng dẫn tạo bài hát Lô Tô có nhạc phổ */}
-        {showSunoGuide && (
-          <div className="p-3 rounded-lg bg-amber-950/30 border border-amber-500/40 text-xs flex flex-col gap-2 text-slate-300">
-            <div className="font-bold text-amber-300 flex items-center gap-1.5">
-              <span>🌟</span>
-              <span>Công thức tạo bài hát Lô Tô có nhạc phổ bằng Suno AI (hoàn toàn miễn phí):</span>
-            </div>
-            <p className="text-[11px] leading-relaxed">
-              1. Truy cập <span className="font-mono text-amber-200">suno.com</span> hoặc <span className="font-mono text-amber-200">udio.com</span>. Bấm <b>Create</b>.
-            </p>
-            <p className="text-[11px] leading-relaxed">
-              2. Bật chế độ <b>Custom Mode</b>. Dán Style Prompt sau:
-            </p>
-            <div className="bg-slate-900 p-2 rounded border border-slate-700 font-mono text-[10px] text-amber-300 select-all">
-              Vietnamese folk loto fair, acoustic organ, cajon and bo percussion, cheerful southern Vietnamese melody, bolero chachacha, lively festival
-            </div>
-            <p className="text-[11px] leading-relaxed">
-              3. Phần <b>Lyrics</b>: dán câu hò của số (ví dụ: <i>Trúc xinh trúc mọc đầu đình... Cờ ra con Mười Hai!</i>).
-            </p>
-            <p className="text-[11px] leading-relaxed">
-              4. Tải file MP3 về, đặt tên là <span className="font-mono text-emerald-400 font-bold">12.mp3</span> (hoặc số tương ứng) và lưu vào thư mục:
-              <br />
-              <code className="text-[10px] bg-slate-900 px-1 py-0.5 rounded text-amber-300">public/assets/loto/songs/</code>
-              <br />
-              Hệ thống sẽ <b>tự động ưu tiên phát file bài hát thật</b> này thay vì đọc AI!
-            </p>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-          {/* Lựa chọn giọng MC xướng */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-slate-400 font-semibold text-[11px]">Giọng MC Xướng Số:</span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => {
-                  setLotoVoice('vi-VN-NamMinhNeural');
-                  soundEngine.setLotoVoice('vi-VN-NamMinhNeural');
-                }}
-                className={`py-2 px-2.5 rounded-lg border font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all ${
-                  lotoVoice === 'vi-VN-NamMinhNeural'
-                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md scale-[1.02]'
-                    : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
-                }`}
-              >
-                <span>🧔</span>
-                <span>Nam Minh (Hào sảng)</span>
-              </button>
-              <button
-                onClick={() => {
-                  setLotoVoice('vi-VN-HoaiMyNeural');
-                  soundEngine.setLotoVoice('vi-VN-HoaiMyNeural');
-                }}
-                className={`py-2 px-2.5 rounded-lg border font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all ${
-                  lotoVoice === 'vi-VN-HoaiMyNeural'
-                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md scale-[1.02]'
-                    : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
-                }`}
-              >
-                <span>👩</span>
-                <span>Hoài My (Ngọt ngào)</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Hòa âm Beat Đờn Organ Hội Chợ */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-slate-400 font-semibold text-[11px]">Beat Đờn Organ & Trống Bo:</span>
-            <label className="flex items-center gap-2 p-2 rounded-lg bg-slate-900 border border-slate-800 cursor-pointer hover:border-slate-700 select-none">
-              <input
-                type="checkbox"
-                checked={useBeat}
-                onChange={(e) => {
-                  setUseBeat(e.target.checked);
-                  soundEngine.setLotoUseBeat(e.target.checked);
-                }}
-                className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
-              />
-              <span className="text-[11px] text-slate-200">
-                Tự động đệm beat đàn Organ + Reverb sân khấu khi hô số
-              </span>
-            </label>
-          </div>
-        </div>
-
-        {/* Thông báo cơ chế gọi số thông minh */}
-        <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-start gap-2 text-[11px] text-amber-200">
-          <span className="text-base shrink-0">💡</span>
-          <div>
-            <strong className="text-amber-300">Cơ chế gọi số thông minh:</strong> Khi bấm <em>Quay số ngẫu nhiên (1-90)</em>, hệ thống tự động phát câu hò / dạo đầu bolero luyến láy 10-12s của ca sĩ thật để giữ không khí hồi hộp, rồi hô vang chính xác số vừa quay ra! Nếu quay trúng số có bài hát riêng (#1, #2, #3, #12), bài hát gốc của ca sĩ sẽ được phát trọn vẹn 100%.
-          </div>
-        </div>
-
-        {/* Quản lý và nạp file MP3 ca sĩ hát thật */}
-        <div className="flex flex-col gap-2 pt-2 border-t border-slate-900 text-[11px]">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-slate-400 font-semibold">Kho bài hát ca sĩ hát thật:</span>
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-500/60 text-emerald-300 font-bold text-[10px] flex items-center gap-1 shadow-sm">
-                <span>🎉</span>
-                <span>Đã có đủ {availableSongs.length}/90 bài hát người thật (100% không ghép nối)</span>
-              </span>
-            </div>
-
-            {/* Form nạp nhanh file MP3 ca sĩ hát luyến láy */}
-            <div className="flex items-center gap-1.5 bg-slate-900/90 p-1.5 rounded-lg border border-slate-800">
-              <span className="text-slate-400 text-[10px]">Nạp MP3 cho số:</span>
-              <input
-                type="number"
-                min="1"
-                max="90"
-                value={uploadNum}
-                onChange={(e) => setUploadNum(Math.max(1, Math.min(90, Number(e.target.value))))}
-                className="w-12 px-1.5 py-0.5 text-center font-mono font-bold bg-slate-950 border border-slate-700 rounded text-amber-400 text-xs focus:outline-none"
-              />
-              <label className="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white font-bold text-[10px] cursor-pointer flex items-center gap-1 active:scale-95 transition-all">
-                <span>{isUploading ? '⏳' : '📁'}</span>
-                <span>{isUploading ? 'Đang nạp...' : 'Thay MP3'}</span>
-                <input
-                  type="file"
-                  accept="audio/*"
-                  onChange={handleUploadFile}
-                  disabled={isUploading}
-                  className="hidden"
-                />
-              </label>
-            </div>
-          </div>
-
-          {/* Danh sách 90 bài hát cuộn mượt mà */}
-          {availableSongs.length > 0 ? (
-            <div className="max-h-36 overflow-y-auto flex flex-wrap gap-1 p-2 rounded-lg bg-slate-950/90 border border-slate-800/80 shadow-inner">
-              {availableSongs.map((s) => (
-                <div key={s} className="inline-flex items-center rounded border border-emerald-500/30 bg-slate-900/90 overflow-hidden text-[10px] hover:border-emerald-400 transition-all">
-                  <button
-                    onClick={() => soundEngine.playLotoCall(s)}
-                    className="px-1.5 py-0.5 bg-emerald-950/80 hover:bg-emerald-800 text-emerald-300 font-mono font-bold flex items-center gap-0.5 cursor-pointer"
-                    title={`Bấm nghe thử ca sĩ hát bài số ${s}`}
-                  >
-                    <span>▶️</span>
-                    <span>#{s}</span>
-                  </button>
-                  <button
-                    onClick={() => lotoEngine.spinNext(s)}
-                    className="px-1.5 py-0.5 bg-amber-950/90 hover:bg-amber-800 border-l border-amber-600/40 text-amber-300 font-bold flex items-center gap-0.5 cursor-pointer text-[9px]"
-                    title={`Quay lồng cầu và gọi trúng số ${s} trên sân khấu`}
-                  >
-                    <span>🎲</span>
-                    <span>Quay</span>
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <span className="text-slate-500 italic">Chưa có bài hát nào</span>
-          )}
-
-          {uploadMsg && (
-            <div className={`text-[11px] font-semibold ${uploadMsg.includes('Lỗi') ? 'text-rose-400' : 'text-emerald-400'}`}>
-              {uploadMsg}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 4. BỘ TEST NHANH GIẢ LẬP & HÁT LÔ TÔ */}
-      <div className="flex flex-wrap items-center gap-2 bg-slate-950/40 p-3 rounded-xl border border-slate-800/80">
-        <span className="text-xs font-semibold text-slate-400">Nghe Thử Ca Sĩ Hát Thật:</span>
-        <button
-          onClick={() => {
-            soundEngine.playLotoCall(2);
-          }}
-          className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-pink-600 via-rose-500 to-amber-400 hover:brightness-110 text-[11px] text-white font-bold border border-pink-300 shadow flex items-center gap-1 active:scale-95 transition-all"
-        >
-          <span>🌸</span>
-          <span>Nữ Ca Sĩ Số 2 (Hằng Ny Ngọt Ngào)</span>
-        </button>
-        <button
-          onClick={() => {
-            soundEngine.playLotoCall(3);
-          }}
-          className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-fuchsia-600 via-pink-500 to-rose-400 hover:brightness-110 text-[11px] text-white font-bold border border-pink-200 shadow flex items-center gap-1 active:scale-95 transition-all"
-        >
-          <span>🌸</span>
-          <span>Nữ Ca Sĩ Số 3 (Dạ Thảo Tân Thời)</span>
-        </button>
-        <button
-          onClick={() => {
-            soundEngine.playLotoCall(12);
-          }}
-          className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-red-600 via-rose-500 to-amber-500 hover:brightness-110 text-[11px] text-white font-bold border border-yellow-300 shadow flex items-center gap-1 active:scale-95 transition-all"
-        >
-          <span>🎵</span>
-          <span>Hát Thật Số 12 (Gánh Hương Nam)</span>
-        </button>
-        <button
-          onClick={() => {
-            soundEngine.playLotoCall(1);
-          }}
-          className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-500 hover:brightness-110 text-[11px] text-white font-bold border border-purple-300 shadow flex items-center gap-1 active:scale-95 transition-all"
-        >
-          <span>🎵</span>
-          <span>Mở Màn Số 1</span>
-        </button>
-        <button
-          onClick={() => soundEngine.stopLotoCall()}
-          className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold border border-slate-700 shadow flex items-center gap-1 active:scale-95 transition-all"
-        >
-          <span>⏹️</span>
-          <span>Dừng tiếng</span>
-        </button>
-        <button
-          onClick={() => handleAddBatchPlayers(1)}
-          className="px-2.5 py-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 text-[11px] font-bold border border-emerald-500/50 shadow flex items-center gap-1 active:scale-95 transition-all"
-          title="Thêm 1 khán giả"
-        >
-          <span>👥</span>
-          <span>+1 Khách</span>
-        </button>
-        <button
-          onClick={() => handleAddBatchPlayers(5)}
-          className="px-2.5 py-1.5 rounded-lg bg-teal-950/60 hover:bg-teal-900/80 text-teal-300 text-[11px] font-bold border border-teal-500/50 shadow flex items-center gap-1 active:scale-95 transition-all"
-          title="Thêm nhóm 5 khán giả"
-        >
-          <span>👥</span>
-          <span>+5 Khách</span>
-        </button>
-        <button
-          onClick={() => handleFillAudience(31)}
-          className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-600 to-yellow-500 hover:brightness-110 text-slate-950 font-black text-[11px] border border-yellow-200 shadow-[0_0_10px_rgba(245,158,11,0.5)] flex items-center gap-1 active:scale-95 transition-all"
-          title="Tự động lấp đầy toàn bộ 31 chỗ ngồi trên sân khấu"
-        >
-          <span>🎪</span>
-          <span>Đầy Hội Trường (31 Ghế)</span>
-        </button>
-        <button
-          onClick={handleSimulateWin}
-          className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-600 to-yellow-500 hover:brightness-110 text-slate-950 font-black text-[11px] border border-yellow-200 shadow-[0_0_10px_rgba(245,158,11,0.5)] flex items-center gap-1 active:scale-95 transition-all"
-        >
-          <span>👑</span>
-          <span>⚡ Test nổ KINH!</span>
-        </button>
-      </div>
-
-      {/* 4.5. KHU VỰC THỬ NGHIỆM MOI QUÀ TIKTOK LIVE & KỊCH BẢN MC */}
-      <div className="flex flex-col gap-2.5 bg-gradient-to-r from-red-950/40 via-purple-950/30 to-amber-950/40 p-3 rounded-xl border border-red-500/40">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="text-sm">🎁</span>
-            <span className="text-xs font-bold text-yellow-300 uppercase tracking-wide">
-              Thử Nghiệm Tặng Quà TikTok Live ("Moi Quà" Khán Giả)
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <input
-              type="text"
-              value={simulatedGifterName}
-              onChange={(e) => setSimulatedGifterName(e.target.value)}
-              placeholder="Tên người tặng (bỏ trống = random)..."
-              className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-700 text-[11px] text-slate-200 placeholder:text-slate-500 w-44 focus:outline-none focus:border-yellow-400"
-            />
-          </div>
-        </div>
-
-        {/* 4 Nút Tặng Quà Theo Tier */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <button
-            onClick={() => handleSimulateGift('Hoa Hồng', 1)}
-            className="p-2 rounded-xl bg-gradient-to-r from-rose-900/60 to-red-800/60 hover:from-rose-800 hover:to-red-700 border border-rose-500/60 flex flex-col items-center gap-0.5 shadow transition-all active:scale-95"
-            title="Tặng 1 hoa hồng (1 xu) - cấp vé thường"
-          >
-            <div className="flex items-center gap-1">
-              <span className="text-base">🌹</span>
-              <span className="text-[11px] font-black text-rose-200">Hoa Hồng (1 xu)</span>
-            </div>
-            <span className="text-[9px] text-rose-300/80">Cấp vé thường + cảm ơn</span>
-          </button>
-
-          <button
-            onClick={() => handleSimulateGift('Cây Kem', 10)}
-            className="p-2 rounded-xl bg-gradient-to-r from-amber-900/60 to-yellow-800/60 hover:from-amber-800 hover:to-yellow-700 border border-yellow-500/60 flex flex-col items-center gap-0.5 shadow transition-all active:scale-95"
-            title="Tặng cây kem (10 xu) - nâng vé VIP Vàng"
-          >
-            <div className="flex items-center gap-1">
-              <span className="text-base">🍦</span>
-              <span className="text-[11px] font-black text-amber-200">Cây Kem (10 xu)</span>
-            </div>
-            <span className="text-[9px] text-amber-300/80">Vé VIP Viền Vàng May Mắn</span>
-          </button>
-
-          <button
-            onClick={() => handleSimulateGift('Vương Miện', 99)}
-            className="p-2 rounded-xl bg-gradient-to-r from-purple-900/60 to-pink-800/60 hover:from-purple-800 hover:to-pink-700 border border-purple-500/60 flex flex-col items-center gap-0.5 shadow transition-all active:scale-95"
-            title="Tặng vương miện (99 xu) - 2 vé + ghế đầu VIP + MC hô tên"
-          >
-            <div className="flex items-center gap-1">
-              <span className="text-base">👑</span>
-              <span className="text-[11px] font-black text-purple-200">Vương Miện (99 xu)</span>
-            </div>
-            <span className="text-[9px] text-purple-300/80">2 Vé + Ghế đầu VIP + MC khen</span>
-          </button>
-
-          <button
-            onClick={() => handleSimulateGift('Tên Lửa', 1000)}
-            className="p-2 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 hover:brightness-110 border border-yellow-300 flex flex-col items-center gap-0.5 shadow-lg transition-all active:scale-95 animate-pulse"
-            title="Tặng tên lửa (1000 xu) - pháo hoa rực rỡ + chọn số tiếp theo"
-          >
-            <div className="flex items-center gap-1">
-              <span className="text-base">🚀</span>
-              <span className="text-[11px] font-black text-white">Tên Lửa (1000 xu)</span>
-            </div>
-            <span className="text-[9px] text-yellow-200 font-bold">Pháo hoa + Chọn số quay</span>
-          </button>
-        </div>
-
-        {/* Kịch bản MC Hô Hào Moi Quà Nhanh */}
-        <div className="pt-2 border-t border-red-500/30 flex flex-col gap-1.5">
-          <span className="text-[10px] font-bold text-amber-300 flex items-center gap-1">
-            <span>📢</span>
-            <span>Kịch Bản AI MC Hô Hào Moi Quà (Bấm là AI MC cất giọng đọc ngay trên Live):</span>
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {MC_PROMPTS.map((prompt, idx) => (
-              <button
-                key={idx}
-                onClick={() => soundEngine.speak(prompt.text)}
-                className="px-2.5 py-1 rounded-lg bg-slate-900/90 hover:bg-amber-950/80 border border-amber-500/40 text-[10px] text-amber-200 font-medium flex items-center gap-1 active:scale-95 transition-all text-left"
-                title={prompt.text}
-              >
-                <span>🔊</span>
-                <span>{prompt.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* 4.6. BỘ ĐIỀU KHIỂN MÔ HÌNH VŨ CÔNG NHẢY MÚA SÂN KHẤU */}
-      <div className="flex flex-col gap-2.5 bg-gradient-to-r from-purple-950/40 via-pink-950/30 to-amber-950/40 p-3 rounded-xl border border-pink-500/40">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="text-sm">💃</span>
-            <div>
-              <span className="text-xs font-bold text-pink-300 uppercase tracking-wide flex items-center gap-1.5">
-                <span>Mô Hình Vũ Công Nhảy Múa Trên Sân Khấu (3D Dancers)</span>
-                {gameState.danceStyle && (
-                  <span className="px-1.5 py-0.2 rounded-full bg-emerald-600 text-white text-[8px] font-black uppercase animate-pulse">
-                    Đang nhảy: {gameState.danceStyle}
-                  </span>
-                )}
-              </span>
-              <p className="text-[10px] text-slate-400">
-                Bấm để kích hoạt mô hình vũ công nhảy các vũ điệu TikTok ngay trên sân khấu (hoặc tự động nhảy khi có quà TikTok).
-              </p>
-            </div>
-          </div>
-
-          {gameState.danceStyle && (
-            <button
-              onClick={handleStopDance}
-              className="px-2.5 py-1 rounded-lg bg-red-900/80 hover:bg-red-800 text-red-200 text-[10px] font-bold border border-red-500/60 shadow active:scale-95 transition-all"
-            >
-              ⏹️ Dừng vũ công
-            </button>
-          )}
-        </div>
-
-        {/* Nút Chọn Kiểu Nhảy Trực Tiếp (100% Video Vũ Điệu & Trend TikTok Hot Nhất) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2">
-          {/* 1. ANIME CHIKA DANCE - VIDEO 1 GỐC GIỮ NGUYÊN THEO YÊU CẦU */}
-          <button
-            onClick={() => handleTriggerDance('anime', '/assets/loto/dancers/dance-anime.webm', false)}
-            className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
-              gameState.danceStyle === 'anime'
-                ? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white border-pink-200 scale-105 shadow-[0_0_20px_rgba(244,63,94,0.8)] ring-2 ring-pink-400'
-                : 'bg-pink-950/40 border-pink-500/50 text-pink-200 hover:bg-pink-900/50'
-            }`}
-          >
-            <span className="text-2xl animate-bounce">🎀</span>
-            <span className="text-[10px] font-black text-center">1. Anime Chika (Vẫy Tay)</span>
-            <span className="text-[8px] text-pink-200 font-bold text-center">⭐ Video 1 Gốc (Giữ Nguyên)</span>
-          </button>
-
-          {/* 2. TREND TIKTOK: VŨ ĐOÀN K-POP 3 NGƯỜI */}
-          <button
-            onClick={() => handleTriggerDance('kpop_trio', '/assets/loto/dancers/dance-kpop-trio.webm', false)}
-            className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
-              gameState.danceStyle === 'kpop_trio'
-                ? 'bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white border-fuchsia-200 scale-105 shadow-[0_0_20px_rgba(217,70,239,0.8)] ring-2 ring-fuchsia-400'
-                : 'bg-fuchsia-950/40 border-fuchsia-500/50 text-fuchsia-200 hover:bg-fuchsia-900/50'
-            }`}
-          >
-            <span className="text-2xl animate-bounce">✨</span>
-            <span className="text-[10px] font-black text-center">2. K-Pop Trio (TikTok Trend)</span>
-            <span className="text-[8px] text-fuchsia-200 font-bold text-center">🔥 Vũ điệu 3 cô gái triệu view</span>
-          </button>
-
-          {/* 3. TREND TIKTOK: ERLING HAALAND BRAZILIAN PHONK */}
-          <button
-            onClick={() => handleTriggerDance('haaland', '/assets/loto/dancers/dance-haaland.webm', false)}
-            className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
-              gameState.danceStyle === 'haaland'
-                ? 'bg-gradient-to-r from-red-600 to-amber-500 text-white border-red-200 scale-105 shadow-[0_0_20px_rgba(239,68,68,0.8)] ring-2 ring-red-400'
-                : 'bg-red-950/40 border-red-500/50 text-red-200 hover:bg-red-900/50'
-            }`}
-          >
-            <span className="text-2xl animate-bounce">⚡</span>
-            <span className="text-[10px] font-black text-center">3. Haaland Phonk Dance</span>
-            <span className="text-[8px] text-red-200 font-bold text-center">⚽ Siêu phẩm bóng đá TikTok</span>
-          </button>
-
-          {/* 4. TREND TIKTOK: TOC TOC DANCE */}
-          <button
-            onClick={() => handleTriggerDance('toctoc', '/assets/loto/dancers/dance-toctoc.webm', false)}
-            className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
-              gameState.danceStyle === 'toctoc'
-                ? 'bg-gradient-to-r from-blue-600 to-cyan-400 text-white border-cyan-200 scale-105 shadow-[0_0_20px_rgba(6,182,212,0.8)] ring-2 ring-cyan-400'
-                : 'bg-blue-950/40 border-blue-500/50 text-blue-200 hover:bg-blue-900/50'
-            }`}
-          >
-            <span className="text-2xl animate-bounce">🕺</span>
-            <span className="text-[10px] font-black text-center">4. Toc Toc Dance (Soái Ca)</span>
-            <span className="text-[8px] text-cyan-200 font-bold text-center">🔥 Đảo chân uốn éo siêu cuốn</span>
-          </button>
-
-          {/* 5. TREND TIKTOK: CHÚ MÈO ĐỨNG 2 CHÂN */}
-          <button
-            onClick={() => handleTriggerDance('cat_meme', '/assets/loto/dancers/dance-cat-meme.webm', false)}
-            className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
-              gameState.danceStyle === 'cat_meme'
-                ? 'bg-gradient-to-r from-amber-500 to-orange-400 text-slate-950 border-amber-200 scale-105 shadow-[0_0_20px_rgba(245,158,11,0.8)] ring-2 ring-amber-400'
-                : 'bg-amber-950/40 border-amber-500/50 text-amber-200 hover:bg-amber-900/50'
-            }`}
-          >
-            <span className="text-2xl animate-bounce">🐱</span>
-            <span className="text-[10px] font-black text-center">5. Mèo Nhảy TikTok</span>
-            <span className="text-[8px] text-amber-200 font-bold text-center">🔥 Meme triệu view đứng 2 chân</span>
-          </button>
-
-          {/* 6. TREND TIKTOK: CẶP ĐÔI CÁ SẤU SMOOTH CRIMINAL */}
-          <button
-            onClick={() => handleTriggerDance('croc_duo', '/assets/loto/dancers/dance-croc-duo.webm', false)}
-            className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
-              gameState.danceStyle === 'croc_duo'
-                ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 border-emerald-200 scale-105 shadow-[0_0_20px_rgba(16,185,129,0.8)] ring-2 ring-emerald-400'
-                : 'bg-emerald-950/40 border-emerald-500/50 text-emerald-200 hover:bg-emerald-900/50'
-            }`}
-          >
-            <span className="text-2xl animate-bounce">🐊</span>
-            <span className="text-[10px] font-black text-center">6. Cặp Đôi Cá Sấu</span>
-            <span className="text-[8px] text-emerald-200 font-bold text-center">🔥 Lắc hông Smooth Criminal</span>
-          </button>
-
-          {/* 7. VŨ ĐOÀN ĐỒNG DIỄN SONG CA */}
-          <button
-            onClick={() => handleTriggerDance('troupe')}
-            className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 shadow transition-all active:scale-95 ${
-              gameState.danceStyle === 'troupe'
-                ? 'bg-gradient-to-r from-yellow-400 via-pink-500 to-rose-500 text-white border-yellow-200 scale-105 shadow-[0_0_20px_rgba(234,179,8,0.8)] ring-2 ring-yellow-400'
-                : 'bg-yellow-950/40 border-yellow-500/50 text-yellow-200 hover:bg-yellow-900/50'
-            }`}
-          >
-            <span className="text-2xl animate-bounce">👯‍♀️</span>
-            <span className="text-[10px] font-black text-center">7. Song Ca Đồng Diễn</span>
-            <span className="text-[8px] text-yellow-200 font-bold text-center">👑 K-Pop & Chika 2 bên sân khấu</span>
-          </button>
-        </div>
-
-        {/* CÀI ĐẶT NGUỒN VIDEO & TÁCH NỀN XANH (CHROMA KEY) */}
-        <div className="pt-2 border-t border-purple-500/30 flex flex-col gap-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
-              <span>🎬 Nguồn Video Vũ Điệu (WebM Alpha / MP4 Canvas Key):</span>
-              <span className="text-[9px] text-emerald-400 font-normal">
-                {danceVideoUrl ? 'Đang chiếu video vũ công trong suốt' : 'Tự động theo điệu nhảy'}
-              </span>
-            </span>
-
-            <button
-              onClick={() => setShowAiGuide(!showAiGuide)}
-              className="px-2 py-0.5 rounded-full bg-blue-950/80 hover:bg-blue-900 border border-blue-400/50 text-[9px] text-blue-200 font-semibold flex items-center gap-1"
-            >
-              <span>💡 Cách tạo video nhảy bằng AI</span>
-              <span>{showAiGuide ? '▲' : '▼'}</span>
-            </button>
-          </div>
-
-          {/* Quick preset selector - Bấm là nhảy ngay lập tức trên sân khấu! */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <button
-              onClick={() => handleTriggerDance('anime', '/assets/loto/dancers/dance-anime.webm', false)}
-              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                danceVideoUrl === '/assets/loto/dancers/dance-anime.webm' && gameState.danceStyle === 'anime'
-                  ? 'bg-pink-500 text-white border-pink-300 shadow scale-105'
-                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-pink-400'
-              }`}
-            >
-              🎀 1. Chika Vẫy Tay (Gốc)
-            </button>
-
-            <button
-              onClick={() => handleTriggerDance('kpop_trio', '/assets/loto/dancers/dance-kpop-trio.webm', false)}
-              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                danceVideoUrl === '/assets/loto/dancers/dance-kpop-trio.webm' && gameState.danceStyle === 'kpop_trio'
-                  ? 'bg-fuchsia-500 text-white border-fuchsia-300 shadow scale-105'
-                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-fuchsia-400'
-              }`}
-            >
-              ✨ 2. K-Pop Trio
-            </button>
-
-            <button
-              onClick={() => handleTriggerDance('haaland', '/assets/loto/dancers/dance-haaland.webm', false)}
-              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                danceVideoUrl === '/assets/loto/dancers/dance-haaland.webm' && gameState.danceStyle === 'haaland'
-                  ? 'bg-red-600 text-white border-red-300 shadow scale-105'
-                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-red-400'
-              }`}
-            >
-              ⚡ 3. Haaland Phonk
-            </button>
-
-            <button
-              onClick={() => handleTriggerDance('toctoc', '/assets/loto/dancers/dance-toctoc.webm', false)}
-              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                danceVideoUrl === '/assets/loto/dancers/dance-toctoc.webm' && gameState.danceStyle === 'toctoc'
-                  ? 'bg-blue-600 text-white border-blue-300 shadow scale-105'
-                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-blue-400'
-              }`}
-            >
-              🕺 4. Toc Toc Dance
-            </button>
-
-            <button
-              onClick={() => handleTriggerDance('cat_meme', '/assets/loto/dancers/dance-cat-meme.webm', false)}
-              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                danceVideoUrl === '/assets/loto/dancers/dance-cat-meme.webm' && gameState.danceStyle === 'cat_meme'
-                  ? 'bg-amber-500 text-slate-950 border-amber-300 shadow scale-105'
-                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-amber-400'
-              }`}
-            >
-              🐱 5. Mèo Nhảy TikTok
-            </button>
-
-            <button
-              onClick={() => handleTriggerDance('croc_duo', '/assets/loto/dancers/dance-croc-duo.webm', false)}
-              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                danceVideoUrl === '/assets/loto/dancers/dance-croc-duo.webm' && gameState.danceStyle === 'croc_duo'
-                  ? 'bg-emerald-500 text-slate-950 border-emerald-300 shadow scale-105'
-                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-emerald-400'
-              }`}
-            >
-              🐊 6. Cá Sấu Smooth
-            </button>
-
-            <button
-              onClick={() => handleTriggerDance('troupe')}
-              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all ${
-                gameState.danceStyle === 'troupe'
-                  ? 'bg-yellow-500 text-slate-950 border-yellow-300 shadow scale-105'
-                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-yellow-400'
-              }`}
-            >
-              👯‍♀️ 7. Song Ca Đồng Diễn
-            </button>
-          </div>
-
-          {/* Upload file video riêng */}
-          <div className="flex flex-wrap items-center gap-2 mt-1">
-            <label className="cursor-pointer px-3 py-1.5 rounded-xl bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white text-[10px] font-bold flex items-center gap-1.5 shadow active:scale-95 transition-all">
-              <span>📁 Nạp File Video Nhảy Riêng (.mp4 / .webm)</span>
-              <input
-                type="file"
-                accept="video/mp4,video/webm"
-                onChange={handleDanceVideoUpload}
-                disabled={isUploadingDance}
-                className="hidden"
-              />
-            </label>
-
-            <label className="flex items-center gap-1.5 text-[9.5px] text-slate-300 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={danceIsGreenScreen}
-                onChange={(e) => setDanceIsGreenScreen(e.target.checked)}
-                className="rounded accent-emerald-500"
-              />
-              <span>Tự động tách phông xanh (Chroma Key Green Screen)</span>
-            </label>
-
-            {danceUploadMsg && (
-              <span className="text-[9px] text-emerald-400 font-medium animate-pulse">
-                {danceUploadMsg}
-              </span>
-            )}
-          </div>
-
-          {/* HƯỚNG DẪN CHI TIẾT TẠO VIDEO NHẢY BẰNG AI TỪ VIDEO THẬT */}
-          {showAiGuide && (
-            <div className="mt-2 p-3 rounded-xl bg-slate-900/95 border border-blue-500/40 text-[10px] text-slate-300 space-y-2">
-              <div className="font-bold text-blue-300 text-xs flex items-center gap-1">
-                <span>🤖</span>
-                <span>QUY TRÌNH BIẾN 1 VIDEO NGƯỜI THẬT THÀNH NHÂN VẬT HOẠT HÌNH NHẢY:</span>
-              </div>
-              <ol className="list-decimal list-inside space-y-1 pl-1 text-[9.5px] text-slate-200">
-                <li>
-                  <strong className="text-yellow-300">Chuẩn bị video người thật:</strong> Quay hoặc tải 1 video TikTok ngắn (5-10s) người thật đang múa quạt, lắc hông, hoặc nhảy vinahouse.
-                </li>
-                <li>
-                  <strong className="text-yellow-300">Vào công cụ AI Motion:</strong> Truy cập <strong>viggle.ai</strong> (hoặc bot Discord Viggle) / <strong>domoai.app</strong> hoàn toàn miễn phí.
-                </li>
-                <li>
-                  <strong className="text-yellow-300">Ghép chuyển động (Motion Transfer):</strong>
-                  <ul className="list-disc list-inside pl-3 text-slate-300">
-                    <li>Ảnh nhân vật (Character): Chọn ảnh 3D có sẵn trong thư mục <code>public/assets/loto/dancers/dancer-fan.png</code></li>
-                    <li>Video chuyển động (Motion): Tải video người thật nhảy ở Bước 1 lên.</li>
-                    <li>Background: Chọn <strong>Green Screen</strong> (Phông xanh).</li>
-                  </ul>
-                </li>
-                <li>
-                  <strong className="text-yellow-300">Tải video về & nạp vào game:</strong> Bấm nút <strong>"📁 Nạp File Video Nhảy Riêng"</strong> ở trên và chọn video vừa tải về. Sân khấu Lô Tô sẽ tự động tách nền xanh và cho nhân vật nhảy múa trực tiếp 60fps trên bục gỗ!
-                </li>
-              </ol>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 5. ĐỌC CÂU BẤT KỲ TRÊN LIVE */}
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={customSpeak}
-          onChange={(e) => setCustomSpeak(e.target.value)}
-          placeholder="Nhập thông báo hoặc lời chào của MC..."
-          onKeyDown={(e) => e.key === 'Enter' && handleSpeak()}
-          className="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
-        />
-        <button
-          onClick={handleSpeak}
-          className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase transition-all"
-        >
-          Đọc ngay
-        </button>
-      </div>
     </div>
   );
 };

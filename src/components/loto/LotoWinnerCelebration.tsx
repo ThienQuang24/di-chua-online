@@ -5,9 +5,15 @@ interface LotoWinnerCelebrationProps {
   winner: LotoWinner | null;
   onClose: () => void;
   onNewRound?: () => void;
+  autoNextRoundCountdown?: number | null;
 }
 
-export const LotoWinnerCelebration: React.FC<LotoWinnerCelebrationProps> = ({ winner, onClose, onNewRound }) => {
+export const LotoWinnerCelebration: React.FC<LotoWinnerCelebrationProps> = ({
+  winner,
+  onClose,
+  onNewRound,
+  autoNextRoundCountdown,
+}) => {
   const [visible, setVisible] = useState(false);
   const celebratedKeyRef = useRef<string | null>(null);
 
@@ -18,17 +24,12 @@ export const LotoWinnerCelebration: React.FC<LotoWinnerCelebrationProps> = ({ wi
       if (celebratedKeyRef.current !== winnerKey) {
         celebratedKeyRef.current = winnerKey;
         setVisible(true);
-        const timer = setTimeout(() => {
-          setVisible(false);
-          onClose();
-        }, 12000);
-        return () => clearTimeout(timer);
       }
     } else {
       setVisible(false);
       celebratedKeyRef.current = null;
     }
-  }, [winner, onClose]);
+  }, [winner]);
 
   const handleClose = () => {
     setVisible(false);
@@ -160,7 +161,11 @@ export const LotoWinnerCelebration: React.FC<LotoWinnerCelebrationProps> = ({ wi
           className="px-6 py-2 rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-lg flex items-center gap-1.5"
         >
           <span>🔄</span>
-          <span>Bắt đầu ván mới</span>
+          <span>
+            {autoNextRoundCountdown !== null && autoNextRoundCountdown !== undefined
+              ? `Tự động qua Ván mới (${autoNextRoundCountdown}s)...`
+              : 'Bắt đầu ván mới'}
+          </span>
         </button>
       </div>
     </div>

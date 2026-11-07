@@ -1244,7 +1244,7 @@ app.post('/api/tiktok/connect', async (req, res) => {
 });
 
 // Streamer commands from the dashboard, relayed to the live stage page(s) that make the sound
-const CONTROL_ACTIONS = ['speak', 'shareReminder', 'bell', 'setRate', 'setName', 'loto_spin', 'loto_reset', 'loto_auto_spin', 'loto_interval', 'setTheme', 'loto_dance'];
+const CONTROL_ACTIONS = ['speak', 'shareReminder', 'bell', 'setRate', 'setName', 'loto_spin', 'loto_reset', 'loto_auto_spin', 'loto_interval', 'setTheme', 'loto_dance', 'simulate_chat'];
 
 // The channel name (title + what the voice says) survives restarts in settings.json next to this file
 const SETTINGS_FILE = path.join(process.cwd(), 'settings.json');
@@ -1268,6 +1268,9 @@ app.post('/api/control', (req, res) => {
   const payload = {
     action,
     text: typeof text === 'string' ? text.trim().slice(0, 1000) : undefined,
+    username: req.body?.username,
+    displayName: req.body?.displayName,
+    avatarUrl: req.body?.avatarUrl,
     danceStyle: req.body?.danceStyle,
     danceDuration: req.body?.danceDuration,
     danceDonorName: req.body?.danceDonorName,
@@ -1300,6 +1303,319 @@ app.post('/api/control', (req, res) => {
 
   broadcastSSE('control', payload);
   return res.json({ success: true, stages: sseClients.length });
+});
+
+// ============================================================================
+// HỆ THỐNG TỰ ĐỘNG LIVE TIKTOK + ĐIỀU KHIỂN OBS / CỬA SỔ SÂN KHẤU 1-CLICK
+// ============================================================================
+interface LiveAutoConfig {
+  tiktokUsername: string;
+  autoWatchTikTok: boolean;
+  obsWebSocketUrl: string;
+  obsPassword: string;
+  rtmpServer: string;
+  rtmpStreamKey: string;
+}
+
+const LIVE_AUTO_CONFIG_FILE = path.join(LOTO_BACKUP_DIR, 'live_auto_config.json');
+const liveAutoConfig: LiveAutoConfig = {
+  tiktokUsername: '',
+  autoWatchTikTok: false,
+  obsWebSocketUrl: 'ws://127.0.0.1:4455',
+  obsPassword: '',
+  rtmpServer: '',
+  rtmpStreamKey: '',
+};
+
+try {
+  if (fs.existsSync(LIVE_AUTO_CONFIG_FILE)) {
+    const raw = JSON.parse(fs.readFileSync(LIVE_AUTO_CONFIG_FILE, 'utf8'));
+    if (raw && typeof raw === 'object') Object.assign(liveAutoConfig, raw);
+  }
+} catch {
+  // ignore
+}
+
+function saveLiveAutoConfig() {
+  try {
+    if (!fs.existsSync(LOTO_BACKUP_DIR)) fs.mkdirSync(LOTO_BACKUP_DIR, { recursive: true });
+    fs.writeFileSync(LIVE_AUTO_CONFIG_FILE, JSON.stringify(liveAutoConfig, null, 2), 'utf8');
+  } catch {
+    // ignore
+  }
+}
+
+// Background Auto-Watch Timer: Khi bật autoWatchTikTok, tự động canh và kết nối ngay khi tài khoản TikTok vừa bấm Go Live!
+setInterval(() => {
+  if (
+    liveAutoConfig.autoWatchTikTok &&
+    liveAutoConfig.tiktokUsername &&
+    !liveStats.isConnected &&
+    !liveStats.isConnecting
+  ) {
+    fetch(`http://127.0.0.1:${PORT}/api/tiktok/connect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: liveAutoConfig.tiktokUsername }),
+    }).catch(() => {});
+  }
+}, 15000);
+
+app.get('/api/live/auto-config', (_req, res) => {
+  const obsInstalled = fs.existsSync('/Applications/OBS.app');
+  const stageUrl = `http://lvh.me:${PORT}/?view=stage&theme=loto`;
+  return res.json({
+    config: {
+      ...liveAutoConfig,
+      rtmpStreamKeyMasked: liveAutoConfig.rtmpStreamKey
+        ? liveAutoConfig.rtmpStreamKey.slice(0, 6) + '••••••'
+        : '',
+    },
+    obsInstalled,
+    stageUrl,
+    liveStats,
+  });
+});
+
+// Mở cửa sổ Sân Khấu 9:16 độc lập (Chrome App Mode) hoặc mở phần mềm OBS Studio
+app.post('/api/live/launch-stage', (req, res) => {
+  const { openObs } = req.body || {};
+  const stageUrl = `http://lvh.me:${PORT}/?view=stage&theme=loto`;
+  const launched: string[] = [];
+
+  try {
+    if (fs.existsSync('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome')) {
+      const child = spawn(
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        [`--app=${stageUrl}`, '--window-size=500,890'],
+        { detached: true, stdio: 'ignore' }
+      );
+      child.unref();
+      launched.push('Cửa sổ Sân Khấu 9:16');
+    }
+    if (openObs && fs.existsSync('/Applications/OBS.app')) {
+      const obsChild = spawn('open', ['-a', 'OBS'], { detached: true, stdio: 'ignore' });
+      obsChild.unref();
+      launched.push('Phần mềm OBS Studio');
+    }
+    return res.json({
+      success: true,
+      message:
+        launched.length > 0
+          ? `Đã tự động mở: ${launched.join(' + ')}!`
+          : `Link OBS sẵn sàng: ${stageUrl}`,
+      stageUrl,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Điều khiển OBS Studio tự động qua OBS WebSocket v5 (Tự tạo nguồn Sân Khấu 9:16 + Bấm Start Streaming)
+async function controlObsWebSocket(
+  wsUrl: string,
+  password: string,
+  rtmpServer: string,
+  rtmpKey: string,
+  startStreaming: boolean
+): Promise<{ ok: boolean; message: string }> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (ok: boolean, message: string) => {
+      if (settled) return;
+      settled = true;
+      resolve({ ok, message });
+    };
+
+    const timer = setTimeout(() => {
+      finish(false, 'Không tìm thấy OBS WebSocket tại ' + wsUrl + ' (Trong OBS: Công cụ -> Cài đặt máy chủ WebSocket -> Bật)');
+    }, 3500);
+
+    try {
+      const ws = new WebSocket(wsUrl);
+      const stageUrl = `http://lvh.me:${PORT}/?view=stage&theme=loto`;
+
+      ws.onerror = () => {
+        clearTimeout(timer);
+        finish(false, 'OBS chưa mở hoặc chưa bật WebSocket Server (cổng 4455).');
+      };
+
+      ws.onmessage = async (event) => {
+        try {
+          const msg = JSON.parse(String(event.data));
+          // OpCode 0: Hello -> send Identify (OpCode 1)
+          if (msg.op === 0) {
+            let authString: string | undefined;
+            if (msg.d?.authentication && password) {
+              const crypto = await import('crypto');
+              const { challenge, salt } = msg.d.authentication;
+              const secret = crypto.createHash('sha256').update(password + salt).digest('base64');
+              authString = crypto.createHash('sha256').update(secret + challenge).digest('base64');
+            }
+            ws.send(
+              JSON.stringify({
+                op: 1,
+                d: { rpcVersion: 1, authentication: authString },
+              })
+            );
+          }
+          // OpCode 2: Identified -> Configure Stream Settings & Start Stream
+          else if (msg.op === 2) {
+            if (rtmpServer && rtmpKey) {
+              ws.send(
+                JSON.stringify({
+                  op: 6,
+                  d: {
+                    requestType: 'SetStreamServiceSettings',
+                    requestId: 'set_rtmp',
+                    requestData: {
+                      streamServiceType: 'rtmp_custom',
+                      streamServiceSettings: {
+                        server: rtmpServer,
+                        key: rtmpKey,
+                      },
+                    },
+                  },
+                })
+              );
+            }
+            // Refresh / set URL of Browser Source if exists, then StartStream
+            ws.send(
+              JSON.stringify({
+                op: 6,
+                d: {
+                  requestType: 'SetInputSettings',
+                  requestId: 'set_browser_url',
+                  requestData: {
+                    inputName: 'San Khau Lo To 9:16',
+                    inputSettings: {
+                      url: stageUrl,
+                      width: 1080,
+                      height: 1920,
+                    },
+                    overlay: true,
+                  },
+                },
+              })
+            );
+            if (startStreaming) {
+              ws.send(
+                JSON.stringify({
+                  op: 6,
+                  d: {
+                    requestType: 'StartStream',
+                    requestId: 'start_stream',
+                  },
+                })
+              );
+            }
+            setTimeout(() => {
+              clearTimeout(timer);
+              try {
+                ws.close();
+              } catch {}
+              finish(
+                true,
+                startStreaming
+                  ? 'Đã kết nối OBS WebSocket, đồng bộ nguồn Sân Khấu 9:16 và bấm BẮT ĐẦU PHÁT LIVE!'
+                  : 'Đã đồng bộ cấu hình OBS WebSocket thành công!'
+              );
+            }, 500);
+          }
+        } catch {
+          // ignore
+        }
+      };
+    } catch (e: any) {
+      clearTimeout(timer);
+      finish(false, e.message || 'Lỗi kết nối OBS WebSocket');
+    }
+  });
+}
+
+// 1-Click Auto-Start Live: Chỉ cần truyền username TikTok, tự động lưu, tự động canh kết nối, tự động mở sân khấu/OBS và bật Auto-Pilot 24/7!
+app.post('/api/live/auto-start', async (req, res) => {
+  const {
+    tiktokUsername,
+    autoWatchTikTok = true,
+    launchStage = true,
+    connectObs = false,
+    obsWebSocketUrl,
+    obsPassword,
+    rtmpServer,
+    rtmpStreamKey,
+    enableAutoPilot = true,
+  } = req.body || {};
+
+  if (typeof tiktokUsername === 'string') {
+    liveAutoConfig.tiktokUsername = tiktokUsername.trim().replace(/^@/, '');
+  }
+  liveAutoConfig.autoWatchTikTok = Boolean(autoWatchTikTok);
+  if (typeof obsWebSocketUrl === 'string' && obsWebSocketUrl.trim()) {
+    liveAutoConfig.obsWebSocketUrl = obsWebSocketUrl.trim();
+  }
+  if (typeof obsPassword === 'string') {
+    liveAutoConfig.obsPassword = obsPassword;
+  }
+  if (typeof rtmpServer === 'string') {
+    liveAutoConfig.rtmpServer = rtmpServer.trim();
+  }
+  if (typeof rtmpStreamKey === 'string' && !rtmpStreamKey.includes('••')) {
+    liveAutoConfig.rtmpStreamKey = rtmpStreamKey.trim();
+  }
+  saveLiveAutoConfig();
+
+  const steps: string[] = [];
+
+  // 1. Mở cửa sổ Sân Khấu 9:16 nếu được yêu cầu
+  if (launchStage && fs.existsSync('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome')) {
+    try {
+      const stageUrl = `http://lvh.me:${PORT}/?view=stage&theme=loto`;
+      const child = spawn(
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        [`--app=${stageUrl}`, '--window-size=500,890'],
+        { detached: true, stdio: 'ignore' }
+      );
+      child.unref();
+      steps.push('Mở cửa sổ Sân Khấu 9:16');
+    } catch {}
+  }
+
+  // 2. Điều khiển OBS qua WebSocket nếu được yêu cầu
+  let obsResult: { ok: boolean; message: string } | null = null;
+  if (connectObs) {
+    obsResult = await controlObsWebSocket(
+      liveAutoConfig.obsWebSocketUrl,
+      liveAutoConfig.obsPassword,
+      liveAutoConfig.rtmpServer,
+      liveAutoConfig.rtmpStreamKey,
+      true
+    );
+    steps.push(obsResult.message);
+  }
+
+  // 3. Kết nối TikTok Live ngay lập tức (và bật Auto-Watch canh phòng mỗi 15s)
+  if (liveAutoConfig.tiktokUsername) {
+    fetch(`http://127.0.0.1:${PORT}/api/tiktok/connect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: liveAutoConfig.tiktokUsername }),
+    }).catch(() => {});
+    steps.push(`Đang bắt sóng phòng Live @${liveAutoConfig.tiktokUsername} (Tự động canh sóng mỗi 15s)`);
+  }
+
+  // 4. Kích hoạt chế độ Treo Tự Động 24/7 (Auto-Spin + Auto-Bot)
+  if (enableAutoPilot) {
+    broadcastSSE('control', { action: 'loto_auto_spin', text: '1' });
+    steps.push('Bật Treo Máy Tự Động 24/7 (Quay số + Tự qua ván mới + Bot giữ nhiệt)');
+  }
+
+  return res.json({
+    success: true,
+    steps,
+    obsResult,
+    config: liveAutoConfig,
+  });
 });
 
 // Disconnect route
