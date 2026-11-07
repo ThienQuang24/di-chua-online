@@ -201,6 +201,8 @@ export const LotoStage: React.FC<LotoStageProps> = ({
           joinedAt: t.createdAt || Date.now(),
           lastActive: t.createdAt || Date.now(),
           seat: idx,
+          robeColor: '#f59e0b',
+          bowOffset: 0,
         });
       }
     });
