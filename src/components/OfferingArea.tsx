@@ -7,21 +7,9 @@ import { Person, hash } from './Person';
 // steps; offerers kneel at the foot of the steps, the top donors one row behind them.
 const BURNER = { x: 50, y: 58 };
 export const MAIN = { x: 50, y: 74 }; // right at the foot of the steps
-export const SMALL_MATS = [
-  { x: 30, y: 77 },
-  { x: 40, y: 77 },
-  { x: 60, y: 77 },
-  { x: 70, y: 77 },
-];
+export const SMALL_MATS = [{ x: 30, y: 77 }, { x: 40, y: 77 }, { x: 60, y: 77 }, { x: 70, y: 77 }];
 // The ten cushions belong to the top 10 donors: ranks 1-4 in front, 5-10 behind. The chủ lễ mat stays free.
-const BACK_SEATS = [
-  { x: 22, y: 84 },
-  { x: 32, y: 84 },
-  { x: 41.5, y: 84 },
-  { x: 58.5, y: 84 },
-  { x: 68, y: 84 },
-  { x: 78, y: 84 },
-];
+const BACK_SEATS = [{ x: 22, y: 84 }, { x: 32, y: 84 }, { x: 41.5, y: 84 }, { x: 58.5, y: 84 }, { x: 68, y: 84 }, { x: 78, y: 84 }];
 export const TOP10_SEATS = [...SMALL_MATS, ...BACK_SEATS];
 const widthAt = (y: number) => `${10 * (0.62 + ((y - 70) / 30) * 0.42)}%`;
 
@@ -44,12 +32,7 @@ const LotusShape: React.FC<{ id: string }> = ({ id }) => (
 
 // Bronze name plate with the viewer's TikTok avatar (initial when there is none)
 const NamePlate: React.FC<{ name: string; avatar?: string; badge?: string; big?: boolean; lift?: boolean; caption?: string }> = ({
-  name,
-  avatar,
-  badge,
-  big,
-  lift,
-  caption,
+  name, avatar, badge, big, lift, caption,
 }) => (
   <div
     className={`absolute bottom-full ${lift ? 'mb-[15px]' : 'mb-0.5'} font-temple flex items-center gap-1 w-max pl-0.5 pr-1.5 rounded-full border border-[#d9a55a] bg-linear-to-b from-[#5a3413] to-[#2a1608] shadow-[0_0_8px_rgba(217,165,90,0.45)] ${
@@ -67,9 +50,7 @@ const NamePlate: React.FC<{ name: string; avatar?: string; badge?: string; big?:
     {avatar ? (
       <img src={avatar} alt="" referrerPolicy="no-referrer" className={`shrink-0 rounded-full object-cover ${big ? 'w-4 h-4' : 'w-3 h-3'}`} />
     ) : (
-      <span
-        className={`shrink-0 rounded-full bg-[#b07a3a] text-[#fff7e0] font-bold flex items-center justify-center ${big ? 'w-4 h-4 text-[8px]' : 'w-3 h-3 text-[6px]'}`}
-      >
+      <span className={`shrink-0 rounded-full bg-[#b07a3a] text-[#fff7e0] font-bold flex items-center justify-center ${big ? 'w-4 h-4 text-[8px]' : 'w-3 h-3 text-[6px]'}`}>
         {name.slice(0, 1).toUpperCase()}
       </span>
     )}
@@ -79,17 +60,8 @@ const NamePlate: React.FC<{ name: string; avatar?: string; badge?: string; big?:
 
 // A person kneeling at a named place; slides to the new place when the order changes, walks up the aisle when new
 const Occupant: React.FC<{
-  id: string;
-  name: string;
-  avatar?: string;
-  x: number;
-  y: number;
-  badge?: string;
-  big?: boolean;
-  lift?: boolean;
-  caption?: string;
-  mode?: 'pray' | 'bow';
-  labelsOnly?: boolean;
+  id: string; name: string; avatar?: string; x: number; y: number;
+  badge?: string; big?: boolean; lift?: boolean; caption?: string; mode?: 'pray' | 'bow'; labelsOnly?: boolean;
 }> = ({ id, name, avatar, x, y, badge, big, lift, caption, mode = 'pray', labelsOnly }) => {
   const [arrived, setArrived] = useState(false);
   return (
@@ -116,22 +88,16 @@ const Cushion: React.FC<{ x: number; y: number; w: number }> = ({ x, y, w }) => 
     <svg viewBox="0 0 200 90" className="w-full h-auto drop-shadow-[0_4px_5px_rgba(0,0,0,0.6)]" aria-hidden="true">
       <defs>
         <linearGradient id="velvet" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#c8202a" />
-          <stop offset="0.6" stopColor="#9c0f19" />
-          <stop offset="1" stopColor="#6d0911" />
+          <stop offset="0" stopColor="#c8202a" /><stop offset="0.6" stopColor="#9c0f19" /><stop offset="1" stopColor="#6d0911" />
         </linearGradient>
         <linearGradient id="velvetSide" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#8f0d16" />
-          <stop offset="1" stopColor="#58060c" />
+          <stop offset="0" stopColor="#8f0d16" /><stop offset="1" stopColor="#58060c" />
         </linearGradient>
         <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#fbe6a2" />
-          <stop offset="0.5" stopColor="#d9a441" />
-          <stop offset="1" stopColor="#8a5a14" />
+          <stop offset="0" stopColor="#fbe6a2" /><stop offset="0.5" stopColor="#d9a441" /><stop offset="1" stopColor="#8a5a14" />
         </linearGradient>
         <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#3b1d10" />
-          <stop offset="1" stopColor="#1e0d06" />
+          <stop offset="0" stopColor="#3b1d10" /><stop offset="1" stopColor="#1e0d06" />
         </linearGradient>
       </defs>
       {/* wooden base with gold rim and carving */}
@@ -146,12 +112,7 @@ const Cushion: React.FC<{ x: number; y: number; w: number }> = ({ x, y, w }) => 
       <path d="M22 6 H178 Q190 6 192 18 L194 32 Q194 38 186 38 H14 Q6 38 6 32 L8 18 Q10 6 22 6 Z" fill="url(#velvet)" />
       {/* gold border and corner scrolls on the top */}
       <path d="M24 11 H176 Q184 11 185 18 L187 30 Q187 33 183 33 H17 Q13 33 13 30 L15 18 Q16 11 24 11 Z" fill="none" stroke="url(#gold)" strokeWidth="1.3" />
-      {[
-        'M20 14 q5 -1 6 3 q-3 0 -3 3',
-        'M180 14 q-5 -1 -6 3 q3 0 3 3',
-        'M17 30 q6 1 7 -3 q-4 0 -3 -3',
-        'M183 30 q-6 1 -7 -3 q4 0 3 -3',
-      ].map((d) => (
+      {['M20 14 q5 -1 6 3 q-3 0 -3 3', 'M180 14 q-5 -1 -6 3 q3 0 3 3', 'M17 30 q6 1 7 -3 q-4 0 -3 -3', 'M183 30 q-6 1 -7 -3 q4 0 3 -3'].map((d) => (
         <path key={d} d={d} fill="none" stroke="url(#gold)" strokeWidth="1.4" strokeLinecap="round" />
       ))}
       {/* lotus in the middle of the top */}
@@ -169,15 +130,9 @@ const Cushion: React.FC<{ x: number; y: number; w: number }> = ({ x, y, w }) => 
 // Incense smoke rising from the painted burner: always a few thin, drifting wisps; when someone lights
 // incense it thickens and the burner glows
 const SMOKE = [
-  { x: 42, delay: 0, dur: 7 },
-  { x: 50, delay: 0.8, dur: 8 },
-  { x: 57, delay: 1.6, dur: 7.5 },
-  { x: 46, delay: 2.4, dur: 8.5 },
-  { x: 54, delay: 3.2, dur: 7 },
-  { x: 40, delay: 4, dur: 8 },
-  { x: 60, delay: 4.8, dur: 7.5 },
-  { x: 48, delay: 5.6, dur: 9 },
-  { x: 52, delay: 6.4, dur: 8 },
+  { x: 42, delay: 0, dur: 7 }, { x: 50, delay: 0.8, dur: 8 }, { x: 57, delay: 1.6, dur: 7.5 },
+  { x: 46, delay: 2.4, dur: 8.5 }, { x: 54, delay: 3.2, dur: 7 }, { x: 40, delay: 4, dur: 8 },
+  { x: 60, delay: 4.8, dur: 7.5 }, { x: 48, delay: 5.6, dur: 9 }, { x: 52, delay: 6.4, dur: 8 },
 ];
 const BurnerGlow: React.FC<{ on: boolean }> = ({ on }) => (
   <div className="absolute -translate-x-1/2 -translate-y-full w-[30%] aspect-[1/2] pointer-events-none" style={{ left: `${BURNER.x}%`, top: `${BURNER.y + 1}%`, zIndex: 60 }}>
@@ -215,9 +170,7 @@ const OfferingLotuses: React.FC<{ offering: GiftEvent | null }> = ({ offering })
       {lotuses.map((l) => (
         <div key={l.id} className="absolute w-[14%] pointer-events-none" style={{ left: `${BURNER.x}%`, top: `${BURNER.y - 8}%`, zIndex: 130 }}>
           <div className="-translate-x-1/2 flex flex-col items-center animate-lotus-rise">
-            <div className="w-full drop-shadow-[0_0_10px_rgba(253,224,71,0.95)]">
-              <LotusShape id={`rise-${l.id}`} />
-            </div>
+            <div className="w-full drop-shadow-[0_0_10px_rgba(253,224,71,0.95)]"><LotusShape id={`rise-${l.id}`} /></div>
             <div className="mt-0.5 w-max max-w-[150px] truncate px-1.5 rounded-full bg-black/60 text-[8px] font-semibold text-amber-100">{l.label}</div>
           </div>
           {l.motes.map((m, i) => (
@@ -240,22 +193,17 @@ export const OfferingArea: React.FC<{
   layer?: 'all' | 'floor' | 'labels'; // floor goes under the 3D people, labels over them
   burnerLit?: boolean; // 3D mode: smoke when the offerer actually lights the incense
   away?: string[]; // usernames up at the burner: no plate at their cushion meanwhile
-}> = ({ offering, offerers, topDonors, layer = 'all', burnerLit, away = [] }) => {
+}> = ({ offering, topDonors, layer = 'all', burnerLit, away = [] }) => {
   const labelsOnly = layer === 'labels';
   return (
     <div className="absolute inset-0 pointer-events-none">
       {layer !== 'labels' && (
         <>
           <BurnerGlow on={burnerLit ?? Boolean(offering)} />
-          {SMALL_MATS.map((m, i) => (
-            <Cushion key={`mat-${i}`} x={m.x} y={m.y} w={9} />
-          ))}
-          {BACK_SEATS.map((m, i) => (
-            <Cushion key={`top-${i}`} x={m.x} y={m.y} w={8.5} />
-          ))}
+          {SMALL_MATS.map((m, i) => <Cushion key={`mat-${i}`} x={m.x} y={m.y} w={9} />)}
+          {BACK_SEATS.map((m, i) => <Cushion key={`top-${i}`} x={m.x} y={m.y} w={8.5} />)}
         </>
       )}
-
       {layer !== 'floor' && (
         <>
           {/* 2D only: the giver kneels at the chủ lễ mat while the gift shows (in 3D they walk up to the burner) */}

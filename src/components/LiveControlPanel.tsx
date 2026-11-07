@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiClient } from '../services/apiClient';
 
 // Sends commands to the live stage page (the Link source in TikTok LIVE Studio), which plays the sound
 export const LiveControlPanel: React.FC = () => {
@@ -7,12 +8,7 @@ export const LiveControlPanel: React.FC = () => {
 
   const send = async (action: string, body: Record<string, string> = {}) => {
     try {
-      const res = await fetch('/api/control', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, ...body }),
-      });
-      const result = await res.json();
+      const result = await apiClient.sendControl({ action, ...body });
       setStatus(result.success ? 'Đã gửi tới màn hình live ✓' : result.error || 'Gửi lệnh thất bại');
       return result.success as boolean;
     } catch {

@@ -56,7 +56,7 @@ class NhauEngineService {
   private birthdayEvent: BirthdayEvent | null = null;
   private birthdayTimeout: NodeJS.Timeout | null = null;
   private recentToast: string = 'Hôm nay không say không về nha anh em ơi!';
-  private topSponsor: { username: string; displayName: string; avatarUrl: string; contribution: string } | null = {
+  private topSponsor = {
     username: 'dai_gia_pho_nui',
     displayName: 'Đại Gia Phố Núi',
     avatarUrl: '',
@@ -68,30 +68,23 @@ class NhauEngineService {
 
   constructor() {
     // Add default friendly guests so tables look lively right away
-    const defaults = [
+    [
       { name: 'Anh Ba Hưng', table: 0, seat: 0 },
       { name: 'Hoàng Nam', table: 0, seat: 1 },
       { name: 'Thanh Hằng', table: 1, seat: 0 },
       { name: 'Bảo Ngọc', table: 2, seat: 0 },
-    ];
-    defaults.forEach((d) => {
-      this.addGuest(d.name, d.name, '', d.table, d.seat);
-    });
+    ].forEach((d) => this.addGuest(d.name, d.name, '', d.table, d.seat));
   }
 
   public subscribe(cb: (state: NhauState) => void) {
     this.listeners.add(cb);
     cb(this.getState());
-    return () => {
-      this.listeners.delete(cb);
-    };
+    return () => { this.listeners.delete(cb); };
   }
 
   public onCheer(cb: (chant: string) => void) {
     this.onCheerCallbacks.add(cb);
-    return () => {
-      this.onCheerCallbacks.delete(cb);
-    };
+    return () => { this.onCheerCallbacks.delete(cb); };
   }
 
   private notify() {
@@ -133,7 +126,6 @@ class NhauEngineService {
     if (preferredTable === undefined) {
       const occupied = new Set<string>();
       this.guests.forEach((g) => occupied.add(`${g.tableId}_${g.seatIndex}`));
-
       found: for (let t = 0; t < 4; t++) {
         for (let s = 0; s < 4; s++) {
           if (!occupied.has(`${t}_${s}`)) {
@@ -184,9 +176,7 @@ class NhauEngineService {
 
     setTimeout(() => {
       this.isCheering = false;
-      this.guests.forEach((g) => {
-        g.isRaisingGlass = false;
-      });
+      this.guests.forEach((g) => { g.isRaisingGlass = false; });
       this.notify();
     }, 4500);
   }
@@ -237,13 +227,7 @@ class NhauEngineService {
   // Trigger Birthday Party Celebration
   public triggerBirthday(displayName: string, customWish?: string, avatarUrl = '') {
     const wish = customWish || 'Chúc tuổi mới bình an, vạn sự hanh thông, tiền vào như nước!';
-    this.birthdayEvent = {
-      username: displayName,
-      displayName,
-      avatarUrl,
-      wishes: wish,
-      activeUntil: Date.now() + 35000,
-    };
+    this.birthdayEvent = { username: displayName, displayName, avatarUrl, wishes: wish, activeUntil: Date.now() + 35000 };
     this.notify();
 
     if (this.birthdayTimeout) clearTimeout(this.birthdayTimeout);
