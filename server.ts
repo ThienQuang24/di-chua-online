@@ -93,6 +93,9 @@ interface ServerLotoTicket {
   hasWon: boolean;
   winningRow?: number;
   createdAt: number;
+  isVip?: boolean;
+  vipGiftName?: string;
+  vipCoins?: number;
 }
 
 interface ServerLotoState {
@@ -110,6 +113,10 @@ interface ServerLotoState {
   danceGiftName?: string | null;
   customVideoUrl?: string | null;
   isGreenScreen?: boolean;
+  lastFakeKinh?: any | null;
+  cageSponsor?: any | null;
+  predictionSummary?: any | null;
+  showPredictionWidget?: boolean;
 }
 
 const serverLotoState: ServerLotoState = {
@@ -127,9 +134,65 @@ const serverLotoState: ServerLotoState = {
   danceGiftName: null,
   customVideoUrl: null,
   isGreenScreen: false,
+  lastFakeKinh: null,
+  cageSponsor: null,
+  predictionSummary: { chanUsers: [], leUsers: [], lastResult: null },
+  showPredictionWidget: true,
 };
 
 const serverLotoTickets: Map<string, ServerLotoTicket> = new Map();
+
+// Feature 5: Server-side Auto-Save Persistence
+const LOTO_BACKUP_DIR = path.join(__dirname, 'data');
+const LOTO_BACKUP_FILE = path.join(LOTO_BACKUP_DIR, 'loto_session_backup.json');
+let diskSaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+function saveLotoSessionToDisk() {
+  if (diskSaveTimer) clearTimeout(diskSaveTimer);
+  diskSaveTimer = setTimeout(() => {
+    try {
+      if (!fs.existsSync(LOTO_BACKUP_DIR)) {
+        fs.mkdirSync(LOTO_BACKUP_DIR, { recursive: true });
+      }
+      const payload = {
+        state: serverLotoState,
+        tickets: Array.from(serverLotoTickets.values()),
+        savedAt: Date.now(),
+      };
+      fs.writeFileSync(LOTO_BACKUP_FILE, JSON.stringify(payload, null, 2), 'utf8');
+    } catch {
+      // Ignore disk write errors
+    }
+  }, 300);
+}
+
+function loadLotoSessionFromDisk() {
+  try {
+    if (!fs.existsSync(LOTO_BACKUP_FILE)) return;
+    const raw = fs.readFileSync(LOTO_BACKUP_FILE, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return;
+    // Only restore if within 12 hours
+    if (parsed.savedAt && Date.now() - parsed.savedAt > 12 * 3600 * 1000) return;
+
+    if (parsed.state && typeof parsed.state === 'object') {
+      Object.assign(serverLotoState, parsed.state);
+      serverLotoState.isSpinning = false;
+    }
+    if (Array.isArray(parsed.tickets)) {
+      serverLotoTickets.clear();
+      for (const t of parsed.tickets) {
+        if (t && t.username && Array.isArray(t.grid)) {
+          serverLotoTickets.set(String(t.username).toLowerCase(), t);
+        }
+      }
+    }
+  } catch {
+    // Ignore restore errors
+  }
+}
+
+loadLotoSessionFromDisk();
 
 function generateVietnameseLotoCard(): number[][] {
   const grid: (number | null)[][] = [
@@ -244,6 +307,9 @@ app.get('/api/tiktok/events', (req, res) => {
       displayName: t.displayName,
       avatarUrl: t.avatarUrl,
       grid: t.grid,
+      isVip: t.isVip,
+      vipGiftName: t.vipGiftName,
+      vipCoins: t.vipCoins,
     }));
     res.write(`event: loto_initial_players\ndata: ${JSON.stringify(list)}\n\n`);
   }
@@ -292,6 +358,10 @@ app.get('/api/loto/state', (_req, res) => {
       isSpinning: serverLotoState.isSpinning,
       lastWinner: serverLotoState.lastWinner,
       activeTicketCount: serverLotoTickets.size,
+      lastFakeKinh: serverLotoState.lastFakeKinh,
+      cageSponsor: serverLotoState.cageSponsor,
+      predictionSummary: serverLotoState.predictionSummary,
+      showPredictionWidget: serverLotoState.showPredictionWidget,
     },
   });
 });
@@ -327,11 +397,15 @@ app.get('/api/loto/ticket', (req, res) => {
     };
     recalcTicketStatus(ticket, serverLotoState.calledNumbers);
     serverLotoTickets.set(key, ticket);
+    saveLotoSessionToDisk();
     broadcastSSE('loto_new_player', {
       username: ticket.username,
       displayName: ticket.displayName,
       avatarUrl: ticket.avatarUrl,
       grid: ticket.grid,
+      isVip: ticket.isVip,
+      vipGiftName: ticket.vipGiftName,
+      vipCoins: ticket.vipCoins,
     });
   } else {
     recalcTicketStatus(ticket, serverLotoState.calledNumbers);
@@ -347,6 +421,9 @@ app.get('/api/loto/ticket', (req, res) => {
       currentChant: serverLotoState.currentChant,
       isSpinning: serverLotoState.isSpinning,
       lastWinner: serverLotoState.lastWinner,
+      lastFakeKinh: serverLotoState.lastFakeKinh,
+      cageSponsor: serverLotoState.cageSponsor,
+      predictionSummary: serverLotoState.predictionSummary,
     },
   });
 });
@@ -368,6 +445,10 @@ app.post('/api/loto/sync', (req, res) => {
     danceGiftName,
     customVideoUrl,
     isGreenScreen,
+    lastFakeKinh,
+    cageSponsor,
+    predictionSummary,
+    showPredictionWidget,
   } = req.body;
   if (typeof roundId === 'number') {
     if (roundId !== serverLotoState.roundId) {
@@ -392,9 +473,14 @@ app.post('/api/loto/sync', (req, res) => {
   if (danceGiftName !== undefined) serverLotoState.danceGiftName = danceGiftName;
   if (customVideoUrl !== undefined) serverLotoState.customVideoUrl = customVideoUrl;
   if (typeof isGreenScreen === 'boolean') serverLotoState.isGreenScreen = isGreenScreen;
+  if (lastFakeKinh !== undefined) serverLotoState.lastFakeKinh = lastFakeKinh;
+  if (cageSponsor !== undefined) serverLotoState.cageSponsor = cageSponsor;
+  if (predictionSummary !== undefined) serverLotoState.predictionSummary = predictionSummary;
+  if (typeof showPredictionWidget === 'boolean') serverLotoState.showPredictionWidget = showPredictionWidget;
 
   // Recalculate all issued tickets
   serverLotoTickets.forEach((t) => recalcTicketStatus(t, serverLotoState.calledNumbers));
+  saveLotoSessionToDisk();
 
   broadcastSSE('loto_update', {
     roundId: serverLotoState.roundId,
@@ -412,6 +498,10 @@ app.post('/api/loto/sync', (req, res) => {
     danceGiftName: serverLotoState.danceGiftName,
     customVideoUrl: serverLotoState.customVideoUrl,
     isGreenScreen: serverLotoState.isGreenScreen,
+    lastFakeKinh: serverLotoState.lastFakeKinh,
+    cageSponsor: serverLotoState.cageSponsor,
+    predictionSummary: serverLotoState.predictionSummary,
+    showPredictionWidget: serverLotoState.showPredictionWidget,
   });
 
   return res.json({ success: true });
@@ -456,6 +546,9 @@ app.post('/api/loto/add-players', (req, res) => {
           waitingNumbers: [],
           hasWon: false,
           createdAt: Date.now(),
+          isVip: !!p.isVip,
+          vipGiftName: p.vipGiftName,
+          vipCoins: p.vipCoins,
         };
         recalcTicketStatus(ticket, serverLotoState.calledNumbers);
         serverLotoTickets.set(key, ticket);
@@ -464,9 +557,38 @@ app.post('/api/loto/add-players', (req, res) => {
           displayName: ticket.displayName,
           avatarUrl: ticket.avatarUrl,
           grid: ticket.grid,
+          isVip: ticket.isVip,
+          vipGiftName: ticket.vipGiftName,
+          vipCoins: ticket.vipCoins,
+        });
+      } else {
+        if (p.isVip) ticket.isVip = true;
+        if (p.vipGiftName) ticket.vipGiftName = p.vipGiftName;
+        if (typeof p.vipCoins === 'number') ticket.vipCoins = p.vipCoins;
+        if (Array.isArray(p.grid) && p.grid.length === 3) {
+          ticket.grid = p.grid.map((row: any[]) =>
+            row.map((cell: any) => {
+              const val = typeof cell === 'object' && cell !== null ? cell.val : cell;
+              return {
+                val: typeof val === 'number' ? val : null,
+                isMarked: typeof val === 'number' && serverLotoState.calledNumbers.includes(val),
+              };
+            })
+          );
+          recalcTicketStatus(ticket, serverLotoState.calledNumbers);
+        }
+        broadcastSSE('loto_new_player', {
+          username: ticket.username,
+          displayName: ticket.displayName,
+          avatarUrl: ticket.avatarUrl,
+          grid: ticket.grid,
+          isVip: ticket.isVip,
+          vipGiftName: ticket.vipGiftName,
+          vipCoins: ticket.vipCoins,
         });
       }
     });
+    saveLotoSessionToDisk();
   }
   return res.json({ success: true, count: serverLotoTickets.size });
 });
@@ -474,7 +596,22 @@ app.post('/api/loto/add-players', (req, res) => {
 // Clear all active tickets and reset audience on server & clients
 app.post('/api/loto/clear-tickets', (_req, res) => {
   serverLotoTickets.clear();
+  saveLotoSessionToDisk();
   broadcastSSE('loto_clear_players', {});
+  return res.json({ success: true });
+});
+
+// Viewer submits Odd/Even (Chẵn/Lẻ) prediction from mobile /ve
+app.post('/api/loto/predict', (req, res) => {
+  const { username, displayName, choice } = req.body || {};
+  if (!username || (choice !== 'chan' && choice !== 'le')) {
+    return res.status(400).json({ success: false, error: 'Dữ liệu dự đoán không hợp lệ' });
+  }
+  broadcastSSE('loto_predict', {
+    username: String(username),
+    displayName: String(displayName || username),
+    choice,
+  });
   return res.json({ success: true });
 });
 
@@ -493,7 +630,16 @@ app.post('/api/loto/claim-win', (req, res) => {
 
   recalcTicketStatus(ticket, serverLotoState.calledNumbers);
   if (!ticket.hasWon || ticket.winningRow === undefined) {
-    return res.status(400).json({ success: false, error: 'Chưa đủ 5 số trên cùng một hàng để Kinh!' });
+    // Broadcast Fake Kinh alarm to the stage so the streamer & audience see who falsely claimed Kinh!
+    broadcastSSE('loto_fake_kinh', {
+      username: ticket.username,
+      displayName: ticket.displayName,
+      avatarUrl: ticket.avatarUrl,
+    });
+    return res.status(400).json({
+      success: false,
+      error: '🚨 BÁO ĐỘNG KINH HỤT! Bạn chưa đủ 5 số trên cùng một hàng, coi chừng bị phạt múa quạt trên sân khấu nhé!',
+    });
   }
 
   const winningRowNumbers: number[] = [];
@@ -512,6 +658,7 @@ app.post('/api/loto/claim-win', (req, res) => {
   };
 
   serverLotoState.lastWinner = winner;
+  saveLotoSessionToDisk();
   broadcastSSE('loto_win', winner);
   return res.json({ success: true, winner });
 });

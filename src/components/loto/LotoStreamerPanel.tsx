@@ -440,9 +440,18 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({
       {/* 1. THANH TRẠNG THÁI VÀ NÚT ĐIỀU KHIỂN CHÍNH */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
         <div>
-          <h2 className="text-base font-bold text-amber-400 flex items-center gap-2">
-            <span>🎪</span> ĐIỀU KHIỂN LÔ TÔ ONLINE (VÁN #{gameState.roundId})
-          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-bold text-amber-400 flex items-center gap-2">
+              <span>🎪</span> ĐIỀU KHIỂN LÔ TÔ ONLINE (VÁN #{gameState.roundId})
+            </h2>
+            <span
+              className="px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/50 text-[10px] font-bold text-emerald-300 flex items-center gap-1"
+              title="Trạng thái ván chơi và danh sách vé được tự động lưu liên tục vào Server & Trình duyệt (chống mất khi F5)"
+            >
+              <span>💾</span>
+              <span>Auto-Save: Đã lưu ({tickets.length} vé)</span>
+            </span>
+          </div>
           <p className="text-xs text-slate-400">
             Đã gọi: <strong className="text-amber-300">{gameState.calledNumbers.length}/90 số</strong> •{' '}
             {gameState.activeTicketCount} vé đang dò
@@ -538,6 +547,78 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({
         </div>
       </div>
 
+      {/* 1.8. BỘ CÔNG CỤ KÍCH HOẠT CAO TRÀO & TƯƠNG TÁC MỚI (BẮT KINH GIẢ • CAO TRÀO • VÉ VIP • ĐOÁN CHẴN/LẺ) */}
+      <div className="p-3 rounded-xl bg-gradient-to-r from-rose-950/40 via-slate-900 to-sky-950/40 border border-amber-500/40 flex flex-col gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-base">⚡</span>
+            <div>
+              <h3 className="text-xs font-black text-amber-300 uppercase tracking-wide">
+                Hiệu Ứng Giữ Chân & Đẩy Tương Tác Phòng Live
+              </h3>
+              <p className="text-[10px] text-slate-400">
+                Tự động bắt Kinh giả khi khách chat <code className="text-yellow-300">kinh</code>, bật đèn cao trào khi có người 4/5 số, cấp Vé Vàng VIP khi tặng quà & đoán Chẵn/Lẻ (<code className="text-sky-300">C</code>/<code className="text-rose-300">L</code>).
+              </p>
+            </div>
+          </div>
+
+          <label className="flex items-center gap-1.5 cursor-pointer select-none text-[11px] text-sky-300 font-semibold">
+            <input
+              type="checkbox"
+              checked={gameState.showPredictionWidget}
+              onChange={(e) => lotoEngine.setShowPredictionWidget(e.target.checked)}
+              className="w-3.5 h-3.5 accent-sky-500 rounded"
+            />
+            <span>Hiện thanh Mini-game Đoán Chẵn/Lẻ</span>
+          </label>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <button
+            onClick={() => lotoEngine.simulateFakeKinh()}
+            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-rose-600 to-orange-600 hover:brightness-110 text-white text-[11px] font-black border border-yellow-300/70 shadow active:scale-95 transition-all flex items-center gap-1.5"
+            title="Giả lập 1 khán giả hô Kinh giả để bật còi báo động & phạt múa quạt trên sân khấu"
+          >
+            <span>🚨</span>
+            <span>Test Bắt Kinh Giả (Phạt Hài Hước)</span>
+          </button>
+
+          <button
+            onClick={() => lotoEngine.simulateTensionWaiting(3)}
+            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-red-700 to-amber-600 hover:brightness-110 text-yellow-100 text-[11px] font-black border border-yellow-300/70 shadow active:scale-95 transition-all flex items-center gap-1.5"
+            title="Cho 3 khán giả đạt trạng thái Chờ Kinh (4/5 số) để bật hiệu ứng Cao Trào Sắp Nổ Hũ"
+          >
+            <span>🔥</span>
+            <span>Test Cao Trào Chờ Kinh (3 Người 4/5)</span>
+          </button>
+
+          <button
+            onClick={() => {
+              const first = tickets[0];
+              const uname = first ? first.username : 'dai_gia_vip';
+              const dname = first ? first.displayName : 'Đại Gia VIP';
+              const avt = first ? first.avatarUrl : '/assets/loto/patron-1.png';
+              lotoEngine.upgradeToVip(uname, dname, avt, 'Hoa Hồng Vàng', 99);
+              lotoEngine.setSpotlightTicket(uname);
+            }}
+            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-500 hover:brightness-110 text-slate-950 text-[11px] font-black border border-yellow-200 shadow active:scale-95 transition-all flex items-center gap-1.5"
+            title="Nâng cấp Vé Vàng VIP & cho đại gia Xin Vía Lồng Cầu"
+          >
+            <span>👑</span>
+            <span>Test Đại Gia Vé VIP & Xin Vía Lồng Cầu</span>
+          </button>
+
+          <button
+            onClick={() => lotoEngine.simulatePredictions(10)}
+            className="px-3 py-1.5 rounded-lg bg-sky-950/80 hover:bg-sky-900 text-sky-200 text-[11px] font-bold border border-sky-500/50 shadow active:scale-95 transition-all flex items-center gap-1.5"
+            title="Giả lập 10 khán giả bình luận đoán Chẵn / Lẻ cho lượt quay kế tiếp"
+          >
+            <span>🎲</span>
+            <span>Test 10 Khách Đoán Chẵn/Lẻ</span>
+          </button>
+        </div>
+      </div>
+
       {/* 2. BẢNG VÉ & CHIẾU VÉ KHÁN GIẢ TRỰC TIẾP TRÊN LIVE */}
       <div className="bg-gradient-to-r from-amber-950/80 via-slate-900 to-amber-950/80 p-4 rounded-2xl border-2 border-amber-500/60 shadow-xl flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-amber-500/30">
@@ -612,16 +693,16 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({
                 <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
                   <span>Khán Phòng Hội Trường:</span>
                   <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-yellow-300 border border-amber-500/40 text-[10.5px]">
-                    {tickets.length} khán giả ({Math.min(tickets.length, 31)}/31 ghế trực tiếp)
+                    {tickets.length} khán giả ({Math.min(tickets.length, 47)}/47 vị trí trực tiếp)
                   </span>
-                  {tickets.length > 31 && (
+                  {tickets.length > 47 && (
                     <span className="px-2 py-0.5 rounded-full bg-red-950/80 text-red-300 border border-red-500/50 text-[10px] animate-pulse">
-                      +{tickets.length - 31} đứng cổ vũ phía sau 🎪
+                      +{tickets.length - 47} đang chờ xoay vòng ghế 🎪
                     </span>
                   )}
                 </div>
                 <p className="text-[10px] text-slate-400">
-                  Hội trường hỗ trợ 31 ghế ngồi 3D phân lớp sân vận động. Khi đông người (&gt;31 khách), hệ thống tự động ưu tiên người Chờ Kinh, Dính Số & Chat lên ghế trước.
+                  Hội trường gồm 31 ghế chính + 16 ghế mở rộng phía sau (tổng 47 người hiện tên trên đầu). Hệ thống tự động ưu tiên Đại Gia VIP, Chờ Kinh & Dính Số ngồi hàng đầu.
                 </p>
               </div>
             </div>
@@ -731,6 +812,11 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({
                         )}
                       </div>
                       <span className="font-bold truncate max-w-[120px]">{t.displayName}</span>
+                      {t.isVip && (
+                        <span className="text-[9.5px] font-black text-slate-950 bg-yellow-400 px-1.5 rounded">
+                          👑 VIP
+                        </span>
+                      )}
                       <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-black/50 border border-white/10 text-amber-300">
                         {t.markedCount}/15 số
                       </span>
@@ -760,6 +846,24 @@ export const LotoStreamerPanel: React.FC<LotoStreamerPanelProps> = ({
                         title={isSpotlight ? 'Đóng vé khỏi màn hình' : 'Chiếu vé này lên màn hình Live'}
                       >
                         {isSpotlight ? '✕ Đang chiếu' : '👁️ Chiếu vé'}
+                      </button>
+                      <button
+                        onClick={() => lotoEngine.upgradeToVip(t.username, t.displayName, t.avatarUrl, 'Vé Vàng VIP', 10)}
+                        className={`px-2 py-1 rounded text-[10px] font-bold border ${
+                          t.isVip
+                            ? 'bg-yellow-500 text-slate-950 border-yellow-300'
+                            : 'bg-slate-800 hover:bg-slate-700 text-yellow-300 border-slate-700'
+                        }`}
+                        title="Cấp Vé Vàng VIP & Xin Vía Lồng Cầu cho người này"
+                      >
+                        👑 VIP
+                      </button>
+                      <button
+                        onClick={() => lotoEngine.simulateFakeKinh(t.username)}
+                        className="px-2 py-1 rounded bg-rose-950/80 hover:bg-rose-900 text-rose-200 text-[10px] font-bold border border-rose-700"
+                        title="Bắt Kinh giả & phạt người này trên sân khấu"
+                      >
+                        🚨 Phạt
                       </button>
                       <button
                         onClick={() => lotoEngine.rerollTicket(t.username)}

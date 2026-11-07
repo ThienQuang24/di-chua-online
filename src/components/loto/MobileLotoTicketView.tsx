@@ -16,6 +16,8 @@ interface LotoTicket {
   waitingNumbers: number[];
   hasWon: boolean;
   winningRow?: number;
+  isVip?: boolean;
+  vipGiftName?: string;
 }
 
 interface LotoServerState {
@@ -104,7 +106,27 @@ export const MobileLotoTicketView: React.FC = () => {
   const [claimSuccess, setClaimSuccess] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [myPrediction, setMyPrediction] = useState<'chan' | 'le' | null>(null);
   const prevCalledCountRef = useRef<number>(0);
+
+  const handlePredict = async (choice: 'chan' | 'le') => {
+    if (!username) return;
+    setMyPrediction(choice);
+    if (soundEnabled) playSfx('stamp');
+    try {
+      await fetch('/api/loto/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          displayName: ticket?.displayName || username,
+          choice,
+        }),
+      });
+    } catch {
+      // Ignore network error
+    }
+  };
 
   // Fetch or issue ticket for current user
   const fetchTicket = async (userToFetch: string) => {
@@ -482,13 +504,19 @@ export const MobileLotoTicketView: React.FC = () => {
       {/* 2.2 TỜ VÉ LÔ TÔ TRUYỀN THỐNG VIỆT NAM (3 DÒNG X 9 CỘT) */}
       <div className="w-full max-w-[350px] my-auto pt-1.5">
         {ticket ? (
-          <div className="relative rounded-2xl bg-gradient-to-b from-[#2a1708] via-[#1c0f06] to-[#120803] p-2 border-2 border-yellow-500/80 shadow-[0_0_25px_rgba(245,158,11,0.25)]">
+          <div
+            className={`relative rounded-2xl bg-gradient-to-b from-[#2a1708] via-[#1c0f06] to-[#120803] p-2 border-2 ${
+              ticket.isVip
+                ? 'border-yellow-300 shadow-[0_0_28px_rgba(250,204,21,0.55)] ring-1 ring-yellow-400'
+                : 'border-yellow-500/80 shadow-[0_0_25px_rgba(245,158,11,0.25)]'
+            }`}
+          >
             {/* Header tờ vé */}
             <div className="flex items-center justify-between pb-1 mb-1 border-b border-amber-900/60 text-xs px-1">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs">🎫</span>
+                <span className="text-xs">{ticket.isVip ? '👑' : '🎫'}</span>
                 <span className="font-black text-yellow-300 uppercase tracking-wider font-temple text-[10px]">
-                  VÉ SỐ MAY MẮN
+                  {ticket.isVip ? 'VÉ VÀNG ĐẠI GIA VIP' : 'VÉ SỐ MAY MẮN'}
                 </span>
               </div>
               <div className="text-[9px] text-amber-300/80 font-mono">
@@ -595,6 +623,39 @@ export const MobileLotoTicketView: React.FC = () => {
         )}
       </div>
 
+      {/* 2.25 MINI-GAME ĐOÁN SỐ TIẾP THEO CHẴN / LẺ NGAY TRÊN ĐIỆN THOẠI */}
+      <div className="w-full max-w-[350px] pt-1.5">
+        <div className="rounded-xl bg-black/75 border border-sky-500/40 p-2 flex items-center justify-between gap-2">
+          <span className="text-[10px] font-bold text-sky-200">
+            🎲 Đoán số kế tiếp:
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => handlePredict('chan')}
+              className={`px-3 py-1 rounded-lg text-[10px] font-black transition-all active:scale-95 ${
+                myPrediction === 'chan'
+                  ? 'bg-sky-500 text-slate-950 border border-yellow-300 shadow-[0_0_10px_rgba(14,165,233,0.8)]'
+                  : 'bg-slate-800 text-sky-300 border border-sky-500/40 hover:bg-slate-700'
+              }`}
+            >
+              {myPrediction === 'chan' ? '✓ ĐÃ CHỌN CHẴN' : 'CHẴN (C)'}
+            </button>
+            <button
+              type="button"
+              onClick={() => handlePredict('le')}
+              className={`px-3 py-1 rounded-lg text-[10px] font-black transition-all active:scale-95 ${
+                myPrediction === 'le'
+                  ? 'bg-rose-500 text-white border border-yellow-300 shadow-[0_0_10px_rgba(244,63,94,0.8)]'
+                  : 'bg-slate-800 text-rose-300 border border-rose-500/40 hover:bg-slate-700'
+              }`}
+            >
+              {myPrediction === 'le' ? '✓ ĐÃ CHỌN LẺ' : 'LẺ (L)'}
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* 2.3 KHỐI NÚT HÔ KINH HOẶC TRẠNG THÁI */}
       <div className="w-full max-w-[350px] pt-2 flex flex-col gap-1.5">
         {errorMessage && (
@@ -630,13 +691,24 @@ export const MobileLotoTicketView: React.FC = () => {
             <span>👑</span>
           </motion.button>
         ) : (
-          <div className="w-full py-3 rounded-2xl bg-black/70 border border-amber-900/60 text-center text-xs text-amber-300 font-semibold flex items-center justify-center gap-2">
-            <span>🎯</span>
-            <span>
-              {ticket && ticket.waitingNumbers.length > 0
-                ? `ĐANG CHỜ SỐ: ${ticket.waitingNumbers.map((n) => (n < 10 ? `0${n}` : n)).join(', ')}`
-                : 'Đang dò vé... Chúc bạn may mắn nổ Kinh!'}
-            </span>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 py-2.5 px-3 rounded-2xl bg-black/70 border border-amber-900/60 text-center text-[11px] text-amber-300 font-semibold flex items-center justify-center gap-1.5">
+              <span>🎯</span>
+              <span>
+                {ticket && ticket.waitingNumbers.length > 0
+                  ? `CHỜ SỐ: ${ticket.waitingNumbers.map((n) => (n < 10 ? `0${n}` : n)).join(', ')}`
+                  : 'Đang dò vé... Chúc bạn nổ Kinh!'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleClaimWin}
+              disabled={isClaiming}
+              className="px-3 py-2.5 rounded-2xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/60 text-[10px] font-black text-rose-200 whitespace-nowrap active:scale-95 transition-all"
+              title="Hô Kinh kiểm tra vé trên sân khấu"
+            >
+              🚨 Hô Kinh!
+            </button>
           </div>
         )}
 

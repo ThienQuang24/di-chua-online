@@ -370,13 +370,13 @@ function MainApp() {
       }
 
       if (currentTheme === 'loto') {
-        // Automatically issue or get ticket for the gifter!
-        lotoEngine.issueTicket(cleanUser, cleanUser, avatarUrl);
+        // Feature 3: Upgrade donor to VIP Golden Ticket & Cage Sponsor ("Xin Vía Lồng Cầu")
+        lotoEngine.upgradeToVip(cleanUser, cleanUser, avatarUrl, giftName, totalDiamonds);
         // Announce with AI voice to thank and hype the live room
         soundEngine.speak(
-          `Cảm ơn đại gia ${formatUsernameForTts(cleanUser)} đã gửi tặng ${giftName}! Gánh hát đã cấp ngay vé may mắn cho bạn!`
+          `Cảm ơn đại gia ${formatUsernameForTts(cleanUser)} đã gửi tặng ${giftName}! Gánh hát đã nâng cấp Vé Vàng V.I.P và cho bạn xin vía lồng cầu ngay lập tức!`
         );
-        // Spotlight the gifter's ticket on stage so everyone sees their new ticket!
+        // Spotlight the gifter's ticket on stage so everyone sees their new VIP ticket!
         lotoEngine.setSpotlightTicket(cleanUser);
       }
 
@@ -456,6 +456,7 @@ function MainApp() {
     addMerit(cleanUser, 1, avatarUrl); // one comment = one point
 
     let isLayVe = false;
+    let isKinhClaim = false;
     if (currentTheme === 'loto') {
       const lower = commentText.toLowerCase().trim();
       isLayVe =
@@ -473,7 +474,46 @@ function MainApp() {
         lower.includes('dò vé') ||
         lower.includes('do ve');
 
-      if (isLayVe) {
+      isKinhClaim =
+        lower === 'kinh' ||
+        lower.includes('kinh roi') ||
+        lower.includes('kinh rồi') ||
+        lower.includes('trung roi') ||
+        lower.includes('trúng rồi') ||
+        lower === 'bingo' ||
+        lower.includes('kinh loto') ||
+        lower.includes('em kinh') ||
+        lower.includes('tui kinh');
+
+      const isPredictChan =
+        lower === 'c' ||
+        lower === 'chan' ||
+        lower === 'chẵn' ||
+        lower === 'so chan' ||
+        lower === 'số chẵn';
+
+      const isPredictLe =
+        lower === 'l' ||
+        lower === 'le' ||
+        lower === 'lẻ' ||
+        lower === 'so le' ||
+        lower === 'số lẻ';
+
+      if (isKinhClaim) {
+        const res = lotoEngine.claimKinh(cleanUser, cleanUser, avatarUrl);
+        if (!res.won && res.fakeEvent) {
+          soundEngine.playMuoGong(1.0);
+          if (config.autoTts) {
+            soundEngine.speak(
+              `Ối giời ơi bà con ơi! Báo động Kinh giả! Bạn ${formatUsernameForTts(cleanUser)} mới trúng có ${res.fakeEvent.maxRowMatched} con một hàng mà dám hô Kinh! Phạt ${res.fakeEvent.penaltyText}`
+            );
+          }
+        }
+      } else if (isPredictChan) {
+        lotoEngine.submitPrediction(cleanUser, cleanUser, 'chan');
+      } else if (isPredictLe) {
+        lotoEngine.submitPrediction(cleanUser, cleanUser, 'le');
+      } else if (isLayVe) {
         lotoEngine.issueTicket(cleanUser, cleanUser, avatarUrl);
         soundEngine.playLotusBloom(0.6);
         if (config.autoTts) {
@@ -501,13 +541,17 @@ function MainApp() {
       currentTheme === 'chua'
         ? isAdidaphat
         : currentTheme === 'loto'
-        ? isLayVe || hasExistingTicket
+        ? isLayVe || isKinhClaim || hasExistingTicket
         : true;
 
     addOrUpdateDevotee(
       cleanUser,
       (d) => ({
-        activeComment: isLayVe ? `🎫 Nhận vé (${maskBanned(commentText)})` : maskBanned(commentText),
+        activeComment: isLayVe
+          ? `🎫 Nhận vé (${maskBanned(commentText)})`
+          : isKinhClaim
+          ? `🚨 HÔ KINH! (${maskBanned(commentText)})`
+          : maskBanned(commentText),
         commentTimestamp: now,
         avatarUrl: avatarUrl || d?.avatarUrl,
       }),
@@ -850,11 +894,18 @@ function MainApp() {
             player.displayName,
             player.avatarUrl || '',
             player.grid,
-            true
+            true,
+            player.isVip,
+            player.vipGiftName,
+            player.vipCoins
           );
           addOrUpdateDevotee(
             player.username,
-            () => ({ displayName: player.displayName, avatarUrl: player.avatarUrl }),
+            () => ({
+              displayName: player.displayName,
+              avatarUrl: player.avatarUrl,
+              isVip: !!player.isVip,
+            }),
             true
           );
         } catch (err) {
@@ -872,17 +923,46 @@ function MainApp() {
                 p.displayName,
                 p.avatarUrl || '',
                 p.grid,
-                true
+                true,
+                p.isVip,
+                p.vipGiftName,
+                p.vipCoins
               );
               addOrUpdateDevotee(
                 p.username,
-                () => ({ displayName: p.displayName, avatarUrl: p.avatarUrl }),
+                () => ({
+                  displayName: p.displayName,
+                  avatarUrl: p.avatarUrl,
+                  isVip: !!p.isVip,
+                }),
                 true
               );
             });
           }
         } catch (err) {
           console.error('SSE loto_initial_players error', err);
+        }
+      });
+
+      eventSource.addEventListener('loto_fake_kinh', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data && data.username) {
+            lotoEngine.claimKinh(data.username, data.displayName, data.avatarUrl);
+          }
+        } catch (err) {
+          console.error('SSE loto_fake_kinh error', err);
+        }
+      });
+
+      eventSource.addEventListener('loto_predict', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data && data.username && (data.choice === 'chan' || data.choice === 'le')) {
+            lotoEngine.submitPrediction(data.username, data.displayName || data.username, data.choice, true);
+          }
+        } catch (err) {
+          console.error('SSE loto_predict error', err);
         }
       });
 

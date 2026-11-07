@@ -10,6 +10,7 @@ interface LotoFairCrowdProps {
   currentNumber: number | null;
   onSelectPlayer?: (username: string) => void;
   activeDanceTier?: LotoDanceTier;
+  fakeKinhUsername?: string | null;
 }
 
 // 6 diverse 3D character models for the festival crowd
@@ -164,8 +165,9 @@ export const LotoFairCrowd: React.FC<LotoFairCrowdProps> = ({
   currentNumber,
   onSelectPlayer,
   activeDanceTier,
+  fakeKinhUsername,
 }) => {
-  // Sắp xếp ưu tiên thông minh: Ai đang Kinh / Chờ Kinh / Dính số / Vừa chat sẽ luôn được lên ghế trước
+  // Sắp xếp ưu tiên thông minh: Ai đang Kinh / Kinh giả / Chờ Kinh / VIP / Dính số / Vừa chat sẽ luôn được lên ghế trước
   const prioritizedDevotees = useMemo(() => {
     return [...devotees].sort((a, b) => {
       const ticketA = lotoEngine.getTicketForUser(a.username);
@@ -175,9 +177,17 @@ export const LotoFairCrowd: React.FC<LotoFairCrowdProps> = ({
         let score = 0;
         // 1. Đã Kinh (Winner) -> Ưu tiên tuyệt đối vị trí số 1
         if (t?.hasWon) score += 1000000;
+        // 1.5. Đang bị bắt Kinh Giả -> Lên ghế đầu chịu phạt cho cả phòng xem
+        if (fakeKinhUsername && d.username.toLowerCase() === fakeKinhUsername.toLowerCase()) {
+          score += 800000;
+        }
         // 2. Chờ Kinh (còn 1-2 số để thắng)
         if (t && t.waitingNumbers.length > 0 && !t.hasWon) {
           score += 500000 + (t.markedCount * 10000);
+        }
+        // 2.5. Đại gia Vé Vàng VIP
+        if (t?.isVip || d.isVip) {
+          score += 350000;
         }
         // 3. Vừa dính số trong lượt quay hiện tại
         if (
@@ -198,7 +208,7 @@ export const LotoFairCrowd: React.FC<LotoFairCrowdProps> = ({
 
       return getScore(b, ticketB) - getScore(a, ticketA);
     });
-  }, [devotees, currentNumber]);
+  }, [devotees, currentNumber, fakeKinhUsername]);
 
   const visibleDevotees = prioritizedDevotees.slice(0, FAIR_SEATS.length);
 
@@ -213,6 +223,10 @@ export const LotoFairCrowd: React.FC<LotoFairCrowdProps> = ({
         const ticket = lotoEngine.getTicketForUser(devotee.username);
         const isWaitingKin = Boolean(ticket && ticket.waitingNumbers.length > 0 && !ticket.hasWon);
         const isWinner = Boolean(ticket && ticket.hasWon);
+        const isVip = Boolean(ticket?.isVip || devotee.isVip);
+        const isFakeKinhOffender = Boolean(
+          fakeKinhUsername && devotee.username.toLowerCase() === fakeKinhUsername.toLowerCase()
+        );
         const seed = hash(devotee.username);
 
         const justMatched =
@@ -220,8 +234,8 @@ export const LotoFairCrowd: React.FC<LotoFairCrowdProps> = ({
           currentNumber !== null &&
           ticket.grid.some((row) => row.some((c) => c.val === currentNumber));
 
-        // Cheering sprite if winning or waiting for Kinh, or during active dance
-        const isDancing = Boolean(activeDanceTier);
+        // Cheering sprite if winning or waiting for Kinh, or during active dance / fake kinh penalty
+        const isDancing = Boolean(activeDanceTier) || isFakeKinhOffender;
         const modelIndex =
           isWinner || isWaitingKin || isDancing
             ? 1
@@ -230,16 +244,17 @@ export const LotoFairCrowd: React.FC<LotoFairCrowdProps> = ({
         const avatarProfile = DEFAULT_AVATARS[seed % DEFAULT_AVATARS.length];
         const isFlipped = seat.flip;
 
-        const danceAnimClass =
-          activeDanceTier === 'rocket'
-            ? 'animate-bounce scale-125 drop-shadow-[0_0_15px_rgba(239,68,68,0.9)]'
-            : activeDanceTier === 'crown'
-            ? 'animate-bounce scale-115 drop-shadow-[0_0_12px_rgba(234,179,8,0.8)]'
-            : activeDanceTier === 'icecream'
-            ? 'animate-bounce scale-110'
-            : activeDanceTier === 'rose'
-            ? 'animate-pulse scale-105'
-            : '';
+        const danceAnimClass = isFakeKinhOffender
+          ? 'animate-bounce scale-115 drop-shadow-[0_0_15px_rgba(244,63,94,0.95)]'
+          : activeDanceTier === 'rocket'
+          ? 'animate-bounce scale-125 drop-shadow-[0_0_15px_rgba(239,68,68,0.9)]'
+          : activeDanceTier === 'crown'
+          ? 'animate-bounce scale-115 drop-shadow-[0_0_12px_rgba(234,179,8,0.8)]'
+          : activeDanceTier === 'icecream'
+          ? 'animate-bounce scale-110'
+          : activeDanceTier === 'rose'
+          ? 'animate-pulse scale-105'
+          : '';
 
         return (
           <motion.div
@@ -255,17 +270,21 @@ export const LotoFairCrowd: React.FC<LotoFairCrowdProps> = ({
               left: `${seat.x}%`,
               top: `${seat.y}%`,
               transform: `translate(-50%, -100%) scale(${seat.scale})`,
-              zIndex: isWinner ? 60 : isWaitingKin ? 50 : Math.round(seat.y * 10),
+              zIndex: isWinner ? 60 : isFakeKinhOffender ? 58 : isWaitingKin ? 50 : Math.round(seat.y * 10),
             }}
             initial={false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            {/* 1. HUY HIỆU CẢM XÚC TRÊN ĐẦU (CHỜ KINH / DÍNH SỐ / KINH / CHAT) */}
+            {/* 1. HUY HIỆU CẢM XÚC TRÊN ĐẦU (CHỜ KINH / DÍNH SỐ / KINH / PHẠT KINH GIẢ / CHAT) */}
             <div className="flex flex-col items-center mb-0.5 z-30">
               {isWinner ? (
                 <span className="px-2 py-0.5 rounded-full bg-red-600 text-[8px] font-black text-white shadow-[0_0_12px_rgba(239,68,68,0.9)] animate-bounce whitespace-nowrap">
                   👑 KINH RỒI!
+                </span>
+              ) : isFakeKinhOffender ? (
+                <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-rose-600 to-orange-500 border border-yellow-300 text-[7.5px] font-black text-white shadow-[0_0_12px_rgba(244,63,94,0.9)] animate-bounce whitespace-nowrap">
+                  🚨 KINH HỤT! Phạt múa quạt!
                 </span>
               ) : isWaitingKin && ticket ? (
                 <span className="px-1.5 py-0.5 rounded-full bg-gradient-to-r from-red-600 to-amber-500 text-[7px] font-extrabold text-yellow-200 shadow-md whitespace-nowrap animate-pulse">
@@ -292,8 +311,14 @@ export const LotoFairCrowd: React.FC<LotoFairCrowdProps> = ({
               ) : null}
             </div>
 
-            {/* 2. TÊN KHÁN GIẢ & AVATAR ĐẶT GỌN GÀNG TRÊN ĐẦU (TÊN Ở TRÊN ĐẦU) */}
-            <div className="flex items-center gap-1 px-1.5 py-[1.5px] rounded-full bg-black/90 border border-amber-400/80 shadow-[0_2px_5px_rgba(0,0,0,0.8)] backdrop-blur-xs max-w-[66px] mb-[-5px] z-20">
+            {/* 2. TÊN KHÁN GIẢ & AVATAR ĐẶT GỌN GÀNG TRÊN ĐẦU (TÊN Ở TRÊN ĐẦU, CÓ VƯƠNG MIỆN NẾU LÀ VIP) */}
+            <div
+              className={`flex items-center gap-1 px-1.5 py-[1.5px] rounded-full backdrop-blur-xs max-w-[72px] mb-[-5px] z-20 ${
+                isVip
+                  ? 'bg-gradient-to-r from-amber-950/95 via-yellow-900/95 to-amber-950/95 border border-yellow-300 shadow-[0_0_8px_rgba(250,204,21,0.75)]'
+                  : 'bg-black/90 border border-amber-400/80 shadow-[0_2px_5px_rgba(0,0,0,0.8)]'
+              }`}
+            >
               <div className="w-3 h-3 rounded-full border border-yellow-300/80 p-[0.5px] bg-black overflow-hidden flex items-center justify-center shrink-0">
                 {devotee.avatarUrl && (devotee.avatarUrl.startsWith('http') || devotee.avatarUrl.startsWith('data:')) ? (
                   <img
@@ -310,8 +335,12 @@ export const LotoFairCrowd: React.FC<LotoFairCrowdProps> = ({
                   </div>
                 )}
               </div>
-              <span className="text-[7px] font-bold text-amber-200 truncate leading-none">
-                {devotee.displayName}
+              <span
+                className={`text-[7px] font-bold truncate leading-none ${
+                  isVip ? 'text-yellow-200 font-black' : 'text-amber-200'
+                }`}
+              >
+                {isVip ? `👑 ${devotee.displayName}` : devotee.displayName}
               </span>
             </div>
 

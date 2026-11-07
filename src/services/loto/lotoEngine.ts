@@ -16,6 +16,9 @@ export interface LotoTicket {
   hasWon: boolean;
   winningRow?: number;
   createdAt: number;
+  isVip?: boolean;
+  vipGiftName?: string;
+  vipCoins?: number;
 }
 
 export interface LotoWinner {
@@ -27,6 +30,37 @@ export interface LotoWinner {
   wonAt: number;
   roundId: number;
   prize?: string;
+}
+
+export interface LotoFakeKinhEvent {
+  id: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string;
+  maxRowMatched: number; // 0..4 out of 5
+  totalMarked: number;
+  penaltyText: string;
+  timestamp: number;
+}
+
+export interface LotoCageSponsor {
+  username: string;
+  displayName: string;
+  avatarUrl: string;
+  giftName: string;
+  coins: number;
+  until: number;
+}
+
+export interface LotoPredictionSummary {
+  chanUsers: string[];
+  leUsers: string[];
+  lastResult?: {
+    number: number;
+    outcome: 'chan' | 'le';
+    winners: string[];
+    timestamp: number;
+  } | null;
 }
 
 export type LotoTicketLayout = '1-ticket' | '2-tickets' | '4-tickets' | '6-tickets';
@@ -81,6 +115,11 @@ export interface LotoState {
   danceGiftName?: string;
   customVideoUrl?: string;
   isGreenScreen?: boolean;
+  lastFakeKinh: LotoFakeKinhEvent | null;
+  cageSponsor: LotoCageSponsor | null;
+  predictionSummary: LotoPredictionSummary;
+  showPredictionWidget: boolean;
+  lastSavedAt: number;
 }
 
 // Generate a authentic Vietnamese Lô Tô card: 3 rows, 9 columns.
@@ -133,6 +172,17 @@ export function generateVietnameseLotoCard(): number[][] {
   return grid as number[][];
 }
 
+const FAKE_KINH_PENALTIES = [
+  'Đứng dậy múa quạt 10 giây trước hội trường!',
+  'Lắc hông nhảy điệu Cá Sấu 10 giây!',
+  'Đứng lên hát 1 câu cải lương chuộc lỗi!',
+  'Thả 50 tim liền tay vì tội báo động giả!',
+  'Uống 1 hơi hết ly nước lọc không nghỉ!',
+  'Đứng nhún nhảy cổ vũ bà con suốt 10 giây!',
+];
+
+const LOTO_STORAGE_KEY = 'loto_engine_backup_v1';
+
 class LotoEngineService {
   private roundId: number = 1;
   private calledNumbers: number[] = [];
@@ -166,14 +216,331 @@ class LotoEngineService {
   private isGreenScreen?: boolean;
   private danceTimer: ReturnType<typeof setTimeout> | null = null;
 
+  private lastFakeKinh: LotoFakeKinhEvent | null = null;
+  private fakeKinhTimer: ReturnType<typeof setTimeout> | null = null;
+  private cageSponsor: LotoCageSponsor | null = null;
+  private predictions: Map<string, { username: string; displayName: string; choice: 'chan' | 'le' }> = new Map();
+  private lastPredictionResult: LotoPredictionSummary['lastResult'] = null;
+  private showPredictionWidget: boolean = true;
+  private lastSavedAt: number = Date.now();
+
   private listeners: Set<(state: LotoState) => void> = new Set();
   private onNumberCalledCallbacks: Set<(num: number, chant: string, spokenText: string) => void> = new Set();
   private onWinCallbacks: Set<(winner: LotoWinner) => void> = new Set();
+  private onFakeKinhCallbacks: Set<(fakeEvent: LotoFakeKinhEvent) => void> = new Set();
 
   constructor() {
     // Start with auto-spin disabled until stream begins or owner turns it on
     this.isAutoSpin = false;
-    this.seedInitialTickets(4);
+    const restored = this.restoreFromLocalStorage();
+    if (!restored || this.tickets.size === 0) {
+      this.seedInitialTickets(4);
+    }
+  }
+
+  private saveToLocalStorage() {
+    if (typeof window === 'undefined') return;
+    try {
+      this.lastSavedAt = Date.now();
+      const payload = {
+        roundId: this.roundId,
+        calledNumbers: this.calledNumbers,
+        currentNumber: this.currentNumber,
+        currentChant: this.currentChant,
+        currentPrize: this.currentPrize,
+        lastWinner: this.lastWinner,
+        historyWinners: this.historyWinners.slice(0, 20),
+        cageSponsor: this.cageSponsor,
+        showPredictionWidget: this.showPredictionWidget,
+        tickets: Array.from(this.tickets.values()),
+        savedAt: this.lastSavedAt,
+      };
+      window.localStorage.setItem(LOTO_STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      // Ignore storage quota errors
+    }
+  }
+
+  private restoreFromLocalStorage(): boolean {
+    if (typeof window === 'undefined') return false;
+    try {
+      const raw = window.localStorage.getItem(LOTO_STORAGE_KEY);
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return false;
+      // Only restore if saved within the last 12 hours
+      if (parsed.savedAt && Date.now() - parsed.savedAt > 12 * 3600 * 1000) return false;
+
+      if (typeof parsed.roundId === 'number') this.roundId = parsed.roundId;
+      if (Array.isArray(parsed.calledNumbers)) this.calledNumbers = parsed.calledNumbers;
+      if (parsed.currentNumber !== undefined) this.currentNumber = parsed.currentNumber;
+      if (typeof parsed.currentChant === 'string') this.currentChant = parsed.currentChant;
+      if (typeof parsed.currentPrize === 'string') this.currentPrize = parsed.currentPrize;
+      if (parsed.lastWinner) this.lastWinner = parsed.lastWinner;
+      if (Array.isArray(parsed.historyWinners)) this.historyWinners = parsed.historyWinners;
+      if (parsed.cageSponsor) this.cageSponsor = parsed.cageSponsor;
+      if (typeof parsed.showPredictionWidget === 'boolean') this.showPredictionWidget = parsed.showPredictionWidget;
+      if (typeof parsed.savedAt === 'number') this.lastSavedAt = parsed.savedAt;
+
+      if (Array.isArray(parsed.tickets) && parsed.tickets.length > 0) {
+        this.tickets.clear();
+        for (const t of parsed.tickets) {
+          if (t && t.username && Array.isArray(t.grid)) {
+            this.recalcTicketStatus(t);
+            this.tickets.set(t.username.toLowerCase(), t);
+          }
+        }
+        return true;
+      }
+    } catch {
+      // Ignore parse errors
+    }
+    return false;
+  }
+
+  public onFakeKinh(cb: (fakeEvent: LotoFakeKinhEvent) => void) {
+    this.onFakeKinhCallbacks.add(cb);
+    return () => {
+      this.onFakeKinhCallbacks.delete(cb);
+    };
+  }
+
+  public clearFakeKinh() {
+    if (this.fakeKinhTimer) clearTimeout(this.fakeKinhTimer);
+    this.lastFakeKinh = null;
+    this.notify();
+  }
+
+  // Feature 1: Check when a viewer claims "KINH" in chat or mobile
+  public claimKinh(
+    username: string,
+    displayName?: string,
+    avatarUrl?: string
+  ): { won: boolean; fakeEvent?: LotoFakeKinhEvent; winner?: LotoWinner } {
+    const t = this.issueTicket(username, displayName || username, avatarUrl || '');
+    this.recalcTicketStatus(t);
+
+    if (t.hasWon && t.winningRow !== undefined) {
+      const winningRowNumbers: number[] = [];
+      t.grid[t.winningRow].forEach((c) => {
+        if (c.val !== null) winningRowNumbers.push(c.val);
+      });
+      const winner: LotoWinner = {
+        username: t.username,
+        displayName: t.displayName,
+        avatarUrl: t.avatarUrl,
+        winningNumber: this.currentNumber || winningRowNumbers[winningRowNumbers.length - 1] || 1,
+        winningRowNumbers,
+        wonAt: Date.now(),
+        roundId: this.roundId,
+        prize: this.currentPrize,
+      };
+      this.lastWinner = winner;
+      this.historyWinners.unshift(winner);
+      this.notify();
+      this.onWinCallbacks.forEach((cb) => cb(winner));
+      return { won: true, winner };
+    }
+
+    // Fake Kinh! Calculate max numbers matched in a single row
+    let maxRowMatched = 0;
+    for (let r = 0; r < 3; r++) {
+      let rowMatched = 0;
+      for (let c = 0; c < 9; c++) {
+        if (t.grid[r][c].val !== null && t.grid[r][c].isMarked) {
+          rowMatched++;
+        }
+      }
+      if (rowMatched > maxRowMatched) maxRowMatched = rowMatched;
+    }
+
+    const penaltyText = FAKE_KINH_PENALTIES[Math.floor(Math.random() * FAKE_KINH_PENALTIES.length)];
+    const fakeEvent: LotoFakeKinhEvent = {
+      id: `fake_${Date.now()}_${t.username}`,
+      username: t.username,
+      displayName: t.displayName,
+      avatarUrl: t.avatarUrl,
+      maxRowMatched,
+      totalMarked: t.markedCount,
+      penaltyText,
+      timestamp: Date.now(),
+    };
+
+    if (this.fakeKinhTimer) clearTimeout(this.fakeKinhTimer);
+    this.lastFakeKinh = fakeEvent;
+    // Automatically spotlight the offender's ticket so everyone sees they only had maxRowMatched/5!
+    this.spotlightTicketUser = t.username.toLowerCase();
+    this.showSpotlightTicket = true;
+    this.notify();
+    this.onFakeKinhCallbacks.forEach((cb) => cb(fakeEvent));
+
+    this.fakeKinhTimer = setTimeout(() => {
+      if (this.lastFakeKinh?.id === fakeEvent.id) {
+        this.lastFakeKinh = null;
+        this.notify();
+      }
+    }, 10000);
+
+    return { won: false, fakeEvent };
+  }
+
+  public simulateFakeKinh(targetUsername?: string): LotoFakeKinhEvent {
+    const all = this.getTickets();
+    let target = targetUsername ? this.getTicketForUser(targetUsername) : undefined;
+    if (!target) {
+      const nonWinners = all.filter((t) => !t.hasWon);
+      target = nonWinners.length > 0 ? nonWinners[Math.floor(Math.random() * nonWinners.length)] : all[0];
+    }
+    if (!target) {
+      target = this.issueTicket('minh_tuan', 'Minh Tuấn', '/assets/nhau/patron-1.png');
+    }
+    const res = this.claimKinh(target.username, target.displayName, target.avatarUrl);
+    if (res.fakeEvent) return res.fakeEvent;
+    // Fallback if target already won
+    const fallbackEvent: LotoFakeKinhEvent = {
+      id: `fake_${Date.now()}`,
+      username: target.username,
+      displayName: target.displayName,
+      avatarUrl: target.avatarUrl,
+      maxRowMatched: 2,
+      totalMarked: 4,
+      penaltyText: FAKE_KINH_PENALTIES[0],
+      timestamp: Date.now(),
+    };
+    this.lastFakeKinh = fallbackEvent;
+    this.notify();
+    return fallbackEvent;
+  }
+
+  // Feature 3: Upgrade donor to VIP Ticket & Cage Sponsor ("Xin Vía Lồng Cầu")
+  public upgradeToVip(
+    username: string,
+    displayName: string,
+    avatarUrl: string,
+    giftName: string = 'Hoa Hồng',
+    coins: number = 1,
+    skipServerSync: boolean = false
+  ): LotoTicket {
+    const t = this.issueTicket(username, displayName, avatarUrl, undefined, true);
+    t.isVip = true;
+    t.vipGiftName = giftName;
+    t.vipCoins = (t.vipCoins || 0) + coins;
+
+    // Set Cage Sponsor ("Xin Vía Lồng Cầu")
+    this.cageSponsor = {
+      username: t.username,
+      displayName: t.displayName,
+      avatarUrl: t.avatarUrl,
+      giftName,
+      coins,
+      until: Date.now() + 60000,
+    };
+
+    if (skipServerSync) {
+      this.notifyLocalOnly();
+    } else {
+      this.notify();
+      if (typeof window !== 'undefined') {
+        fetch('/api/loto/add-players', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            players: [
+              {
+                username: t.username,
+                displayName: t.displayName,
+                avatarUrl: t.avatarUrl,
+                grid: t.grid,
+                isVip: true,
+                vipGiftName: t.vipGiftName,
+                vipCoins: t.vipCoins,
+              },
+            ],
+          }),
+        }).catch(() => {});
+      }
+    }
+    return t;
+  }
+
+  // Feature 4: Next Number Odd/Even (Chẵn/Lẻ) Prediction Mini-Game
+  public submitPrediction(
+    username: string,
+    displayName: string,
+    choice: 'chan' | 'le',
+    skipServerSync: boolean = false
+  ) {
+    const key = username.toLowerCase();
+    this.predictions.set(key, {
+      username,
+      displayName: displayName || username,
+      choice,
+    });
+    if (skipServerSync) {
+      this.notifyLocalOnly();
+    } else {
+      this.notify();
+    }
+  }
+
+  public simulatePredictions(count: number = 8) {
+    const all = this.getTickets();
+    const pool = all.length > 0 ? all : [];
+    for (let i = 0; i < Math.min(count, Math.max(pool.length, count)); i++) {
+      const p = pool[i % Math.max(1, pool.length)];
+      const uname = p ? p.username : `khach_${i + 1}`;
+      const dname = p ? p.displayName : `Khách #${i + 1}`;
+      const choice: 'chan' | 'le' = Math.random() > 0.48 ? 'chan' : 'le';
+      this.predictions.set(uname.toLowerCase(), { username: uname, displayName: dname, choice });
+    }
+    this.notify();
+  }
+
+  // Feature 2 Demo: Put up to 3 tickets into "Chờ Kinh" (4/5 numbers on row 0) to trigger Tension Mode
+  public simulateTensionWaiting(count: number = 3) {
+    const all = this.getTickets();
+    if (all.length === 0) {
+      this.seedInitialTickets(4);
+    }
+    const targets = this.getTickets().slice(0, count);
+    targets.forEach((t) => {
+      let markedInRow0 = 0;
+      for (let c = 0; c < 9; c++) {
+        const cell = t.grid[0][c];
+        if (cell.val !== null) {
+          if (markedInRow0 < 4) {
+            cell.isMarked = true;
+            if (!this.calledNumbers.includes(cell.val)) {
+              this.calledNumbers.push(cell.val);
+            }
+            markedInRow0++;
+          } else {
+            cell.isMarked = false;
+          }
+        }
+      }
+      this.recalcTicketStatus(t);
+    });
+    this.notify();
+  }
+
+  public setShowPredictionWidget(enabled: boolean) {
+    this.showPredictionWidget = enabled;
+    this.notify();
+  }
+
+  public getPredictionSummary(): LotoPredictionSummary {
+    const chanUsers: string[] = [];
+    const leUsers: string[] = [];
+    this.predictions.forEach((v) => {
+      if (v.choice === 'chan') chanUsers.push(v.displayName);
+      else leUsers.push(v.displayName);
+    });
+    return {
+      chanUsers,
+      leUsers,
+      lastResult: this.lastPredictionResult,
+    };
   }
 
   public setSpotlightTicket(username: string | null) {
@@ -329,6 +696,10 @@ class LotoEngineService {
           danceGiftName: this.danceGiftName,
           customVideoUrl: this.customVideoUrl,
           isGreenScreen: this.isGreenScreen,
+          lastFakeKinh: this.lastFakeKinh,
+          cageSponsor: this.cageSponsor,
+          predictionSummary: this.getPredictionSummary(),
+          showPredictionWidget: this.showPredictionWidget,
         }),
       }).catch(() => {});
     }, 100);
@@ -340,6 +711,7 @@ class LotoEngineService {
   }
 
   private notify() {
+    this.saveToLocalStorage();
     this.notifyLocalOnly();
     this.syncToServer();
   }
@@ -353,6 +725,9 @@ class LotoEngineService {
       this.calledNumbers = [];
       this.currentNumber = null;
       this.lastWinner = null;
+      this.lastFakeKinh = null;
+      this.predictions.clear();
+      this.lastPredictionResult = null;
       roundChanged = true;
     }
 
@@ -408,6 +783,39 @@ class LotoEngineService {
       this.isGreenScreen = data.isGreenScreen ?? undefined;
     }
 
+    const prevFake = this.lastFakeKinh;
+    if (data.lastFakeKinh !== undefined) {
+      this.lastFakeKinh = data.lastFakeKinh;
+      if (this.lastFakeKinh && (!prevFake || prevFake.id !== this.lastFakeKinh.id)) {
+        this.onFakeKinhCallbacks.forEach((cb) => cb(this.lastFakeKinh!));
+      }
+    }
+
+    if (data.cageSponsor !== undefined) {
+      this.cageSponsor = data.cageSponsor;
+    }
+
+    if (typeof data.showPredictionWidget === 'boolean') {
+      this.showPredictionWidget = data.showPredictionWidget;
+    }
+
+    if (data.predictionSummary && typeof data.predictionSummary === 'object') {
+      this.predictions.clear();
+      if (Array.isArray(data.predictionSummary.chanUsers)) {
+        data.predictionSummary.chanUsers.forEach((name: string) => {
+          this.predictions.set(name.toLowerCase(), { username: name, displayName: name, choice: 'chan' });
+        });
+      }
+      if (Array.isArray(data.predictionSummary.leUsers)) {
+        data.predictionSummary.leUsers.forEach((name: string) => {
+          this.predictions.set(name.toLowerCase(), { username: name, displayName: name, choice: 'le' });
+        });
+      }
+      if (data.predictionSummary.lastResult !== undefined) {
+        this.lastPredictionResult = data.predictionSummary.lastResult;
+      }
+    }
+
     const prevWinner = this.lastWinner;
     if (data.lastWinner !== undefined) {
       this.lastWinner = data.lastWinner;
@@ -434,6 +842,7 @@ class LotoEngineService {
       );
     }
 
+    this.saveToLocalStorage();
     this.notifyLocalOnly();
   }
 
@@ -509,6 +918,11 @@ class LotoEngineService {
       danceGiftName: this.danceGiftName,
       customVideoUrl: this.customVideoUrl,
       isGreenScreen: this.isGreenScreen,
+      lastFakeKinh: this.lastFakeKinh,
+      cageSponsor: this.cageSponsor,
+      predictionSummary: this.getPredictionSummary(),
+      showPredictionWidget: this.showPredictionWidget,
+      lastSavedAt: this.lastSavedAt,
     };
   }
 
@@ -535,13 +949,19 @@ class LotoEngineService {
     displayName: string,
     avatarUrl: string,
     externalGrid?: any[][],
-    skipServerSync: boolean = false
+    skipServerSync: boolean = false,
+    isVip?: boolean,
+    vipGiftName?: string,
+    vipCoins?: number
   ): LotoTicket {
     const key = username.toLowerCase();
     const existing = this.tickets.get(key);
     if (existing) {
       if (displayName) existing.displayName = displayName;
       if (avatarUrl) existing.avatarUrl = avatarUrl;
+      if (isVip) existing.isVip = true;
+      if (vipGiftName) existing.vipGiftName = vipGiftName;
+      if (typeof vipCoins === 'number') existing.vipCoins = vipCoins;
       if (Array.isArray(externalGrid) && externalGrid.length === 3) {
         existing.grid = externalGrid.map((row) =>
           row.map((cell) => {
@@ -589,11 +1009,15 @@ class LotoEngineService {
       waitingNumbers: [],
       hasWon: false,
       createdAt: Date.now(),
+      isVip: !!isVip,
+      vipGiftName,
+      vipCoins,
     };
 
     this.recalcTicketStatus(ticket);
     this.tickets.set(key, ticket);
     if (skipServerSync) {
+      this.saveToLocalStorage();
       this.notifyLocalOnly();
     } else {
       this.notify();
@@ -608,6 +1032,9 @@ class LotoEngineService {
                 displayName: ticket.displayName,
                 avatarUrl: ticket.avatarUrl,
                 grid: ticket.grid,
+                isVip: ticket.isVip,
+                vipGiftName: ticket.vipGiftName,
+                vipCoins: ticket.vipCoins,
               },
             ],
           }),
@@ -684,6 +1111,20 @@ class LotoEngineService {
 
       const { verse, spokenText } = getLotoChant(nextNum);
       this.currentChant = verse;
+
+      // Feature 4: Evaluate Odd/Even (Chẵn/Lẻ) predictions for this drawn number
+      const outcome: 'chan' | 'le' = nextNum % 2 === 0 ? 'chan' : 'le';
+      const predWinners: string[] = [];
+      this.predictions.forEach((p) => {
+        if (p.choice === outcome) predWinners.push(p.displayName);
+      });
+      this.lastPredictionResult = {
+        number: nextNum,
+        outcome,
+        winners: predWinners,
+        timestamp: Date.now(),
+      };
+      this.predictions.clear();
 
       // Update all tickets
       const newWinners: LotoWinner[] = [];
@@ -798,11 +1239,15 @@ class LotoEngineService {
     this.currentChant = `Ván mới số #${this.roundId} bắt đầu! Chúc cả nhà phát tài phát lộc!`;
     this.isSpinning = false;
     this.lastWinner = null;
+    this.lastFakeKinh = null;
+    this.predictions.clear();
+    this.lastPredictionResult = null;
 
     // Regenerate tickets for existing players
     if (this.tickets.size === 0) {
       this.seedInitialTickets(4);
     } else {
+      const updatedBatch: any[] = [];
       this.tickets.forEach((ticket, key) => {
         const rawGrid = generateVietnameseLotoCard();
         ticket.grid = rawGrid.map((row) =>
@@ -816,7 +1261,23 @@ class LotoEngineService {
         ticket.hasWon = false;
         ticket.winningRow = undefined;
         ticket.id = `ticket_${this.roundId}_${key}`;
+        updatedBatch.push({
+          username: ticket.username,
+          displayName: ticket.displayName,
+          avatarUrl: ticket.avatarUrl,
+          grid: ticket.grid,
+          isVip: ticket.isVip,
+          vipGiftName: ticket.vipGiftName,
+          vipCoins: ticket.vipCoins,
+        });
       });
+      if (typeof window !== 'undefined' && updatedBatch.length > 0) {
+        fetch('/api/loto/add-players', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ players: updatedBatch }),
+        }).catch(() => {});
+      }
     }
 
     this.notify();

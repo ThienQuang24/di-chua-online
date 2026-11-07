@@ -62,11 +62,18 @@ export const LotoPlayerTicketModal: React.FC<LotoPlayerTicketModalProps> = ({
             </div>
 
             <div className="flex flex-col min-w-0">
-              <span className="text-xs sm:text-sm font-black text-white truncate drop-shadow">
-                {ticket.displayName}
-              </span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-xs sm:text-sm font-black text-white truncate drop-shadow">
+                  {ticket.displayName}
+                </span>
+                {ticket.isVip && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-950 text-[8.5px] font-black shadow shrink-0">
+                    👑 VÉ VÀNG VIP
+                  </span>
+                )}
+              </div>
               <span className="text-[9px] text-amber-300/80 font-mono">
-                @{ticket.username}
+                @{ticket.username} {ticket.vipGiftName ? `• 🎁 ${ticket.vipGiftName}` : ''}
               </span>
             </div>
           </div>

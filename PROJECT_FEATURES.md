@@ -81,6 +81,24 @@ Khi có người tặng quà hoặc streamer kích hoạt trên bảng điều k
   * **Henry Stickmin Distraction Dance**: Điệu nhảy gây mất tập trung tấu hài.
 * **Tính năng nạp Video tự do:** Streamer có thể bấm `[+ Tải Lên Video Nhảy Riêng]` để tải lên bất kỳ video MP4 phông xanh (Green Screen) hoặc WebM trong suốt nào, hệ thống tự tách nền hiển thị ngay!
 
+### 2.6. Bộ 5 Tính Năng Giữ Chân & Đẩy Tương Tác Mới Nhất
+1. 🚨 **Hệ Thống "Bắt Kinh Giả - Phạt Hài Hước" (Anti-Fake Kinh):**
+   * Khi khán giả gõ `kinh`, `kinh rồi`, `trúng rồi`, `bingo` trên chat TikTok (hoặc bấm nút `🚨 Hô Kinh!` trên trang điện thoại `/ve`), hệ thống tự động đối chiếu vé 9×3 của họ.
+   * Nếu đủ 5 số trên 1 hàng: Nổ pháo hoa trao giải ngay lập tức.
+   * Nếu chưa đủ 5 số: Bật còi báo động vui nhộn **"🚨 BÁO ĐỘNG KINH HỤT / KINH GIẢ!"**, tự động phóng to tờ vé của người đó lên sân khấu để cả phòng thấy họ mới trúng bao nhiêu số, giọng MC AI đọc câu trêu hài hước và phạt nhân vật đứng dậy múa quạt 10 giây.
+2. 🔥 **Hiệu Ứng "Cao Trào Chờ Kinh - Sắp Nổ Hũ" (Tension & Heartbeat Mode):**
+   * Khi có khán giả đạt trạng thái Chờ Kinh (`4/5` số trên 1 hàng), thanh **"🔥 CAO TRÀO CHỜ KINH"** tự động xuất hiện liệt kê tên và con số họ đang chờ.
+   * Khi có từ 2 người trở lên cùng Chờ Kinh, khung sân khấu rực sáng viền đèn Neon đỏ và phát nhịp tim hồi hộp (`Heartbeat`) mỗi khi lồng cầu quay.
+3. 👑 **Đặc Quyền Đại Gia Donate: "Vé Vàng VIP & Xin Vía Lồng Cầu":**
+   * Bất kỳ khán giả nào tặng quà trên Live sẽ được tự động nâng cấp lên **👑 VÉ VÀNG VIP** (huy hiệu Vương miện vàng trên đầu nhân vật, khung vé Hoàng Kim và ưu tiên ngồi hàng ghế đầu trung tâm).
+   * Đồng thời hiển thị bảng vinh danh **"👑 VIP [Tên] đang xin vía lồng cầu!"** ngay bên dưới lồng quay số.
+4. 🎲 **Mini-Game "Đoán Số Tiếp Theo: Chẵn hay Lẻ?" Giữa 2 Lần Quay:**
+   * Khán giả có thể gõ nhanh `C` (`chẵn`) hoặc `L` (`lẻ`) trên khung chat TikTok (hoặc bấm nút `CHẴN (C)` / `LẺ (L)` ngay trên điện thoại `/ve`).
+   * Thanh tỷ lệ dự đoán cập nhật trực tiếp trên sân khấu và tự động vinh danh số lượng người đoán trúng ngay khi quả cầu nổ ra.
+5. 💾 **Tự Động Lưu Trạng Thái Ván Chơi (Auto-Save Persistence):**
+   * Toàn bộ số đã gọi, giải thưởng và danh sách vé của tất cả khán giả được tự động lưu liên tục vào cả **Server (`data/loto_session_backup.json`)** và **Trình duyệt (`localStorage`)**.
+   * Dù Streamer lỡ tay bấm `F5` tải lại trang hay khởi động lại Server, ván chơi đang quay dở vẫn được khôi phục nguyên vẹn 100%.
+
 ---
 
 ## 3. CHI TIẾT CHẾ ĐỘ: QUÁN NHẬU VỈA HÈ 1 2 3 DÔ
